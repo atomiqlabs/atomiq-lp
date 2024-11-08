@@ -17,7 +17,7 @@ import {
     IBtcFeeEstimator,
     InfoHandler,
     IntermediaryStorageManager,
-    ISwapPrice,
+    ISwapPrice, MultichainData,
     OneDollarFeeEstimator,
     PluginManager,
     SwapHandler,
@@ -25,19 +25,17 @@ import {
     ToBtcAbs,
     ToBtcLnAbs
 } from "crosslightning-intermediary";
-import {BitcoinRpc, BtcRelay, BtcSyncInfo, ChainEvents, SwapContract, SwapData} from "crosslightning-base";
+import {BitcoinRpc, BtcSyncInfo, SwapData} from "crosslightning-base";
 import http2Express from "http2-express-bridge";
 import * as express from "express";
 import * as cors from "cors";
 import {AuthenticatedLnd, UnauthenticatedLnd} from "lightning";
 import * as lncli from "ln-service";
-import {AnchorProvider} from "@coral-xyz/anchor";
-import {Keypair, PublicKey} from "@solana/web3.js";
 import {LetsEncryptACME} from "../LetsEncryptACME";
 import * as tls from "node:tls";
 import {EventEmitter} from "node:events";
 
-export enum SolanaInitState {
+export enum IntermediaryInitState {
     STARTING="starting",
     WAIT_BTC_RPC="wait_btc_rpc",
     WAIT_LND_WALLET="wait_lnd_wallet",
@@ -52,32 +50,34 @@ export enum SolanaInitState {
     READY="ready"
 }
 
-export class SolanaIntermediaryRunner<T extends SwapData> extends EventEmitter {
+export class IntermediaryRunner extends EventEmitter {
 
     readonly directory: string;
     readonly tokens: {
         [ticker: string]: {
-            address: PublicKey,
-            decimals: number
+            chains: {
+                [chainIdentifier: string] : {
+                    address: string,
+                    decimals: number,
+                }
+            }
+            pricing: string,
+            disabled?: boolean
         }
     };
-    readonly allowedTokens: string[];
     readonly prices: ISwapPrice;
     readonly bitcoinRpc: BitcoinRpc<any>;
-    readonly btcRelay: BtcRelay<any, any, any>;
-    readonly swapContract: SwapContract<T, any, any, any>;
-    readonly chainEvents: ChainEvents<T>;
-    readonly signer: (AnchorProvider & {signer: Keypair});
+    readonly multichainData: MultichainData;
 
-    readonly swapHandlers: SwapHandler<SwapHandlerSwap<T>, T>[] = [];
+    readonly swapHandlers: SwapHandler<SwapHandlerSwap>[] = [];
     btcFeeEstimator: IBtcFeeEstimator;
-    infoHandler: InfoHandler<T>;
+    infoHandler: InfoHandler;
     LND: AuthenticatedLnd;
 
-    initState: SolanaInitState = SolanaInitState.STARTING;
+    initState: IntermediaryInitState = IntermediaryInitState.STARTING;
     sslAutoUrl: string;
 
-    setState(newState: SolanaInitState) {
+    setState(newState: IntermediaryInitState) {
         const oldState = this.initState;
         this.initState = newState;
         super.emit("state", newState, oldState);
@@ -85,31 +85,28 @@ export class SolanaIntermediaryRunner<T extends SwapData> extends EventEmitter {
 
     constructor(
         directory: string,
-        signer: (AnchorProvider & {signer: Keypair}),
+        multichainData: MultichainData,
         tokens: {
             [ticker: string]: {
-                address: PublicKey,
-                decimals: number,
+                chains: {
+                    [chainIdentifier: string] : {
+                        address: string,
+                        decimals: number,
+                    }
+                }
                 pricing: string,
                 disabled?: boolean
             }
         },
         prices: ISwapPrice,
         bitcoinRpc: BitcoinRpc<any>,
-        btcRelay: BtcRelay<any, any, any>,
-        swapContract: SwapContract<T, any, any, any>,
-        chainEvents: ChainEvents<T>
     ) {
         super();
         this.directory = directory;
-        this.signer = signer;
+        this.multichainData = multichainData;
         this.tokens = tokens;
-        this.allowedTokens = Object.keys(tokens).map<string>(key => tokens[key].disabled ? null : tokens[key].address.toString()).filter(e => e!=null);
         this.prices = prices;
         this.bitcoinRpc = bitcoinRpc;
-        this.btcRelay = btcRelay;
-        this.swapContract = swapContract;
-        this.chainEvents = chainEvents;
     }
 
     /**
@@ -277,16 +274,25 @@ export class SolanaIntermediaryRunner<T extends SwapData> extends EventEmitter {
     }
 
     async registerPlugins(): Promise<void> {
+        const tokenData: {
+            [ticker: string]: {
+                [chainId: string]: {
+                    address: string,
+                    decimals: number
+                }
+            }
+        } = {};
+        for(let ticker in this.tokens) {
+            tokenData[ticker] = this.tokens[ticker].chains;
+        }
         const plugins = await getEnabledPlugins();
         plugins.forEach(pluginData => PluginManager.registerPlugin(pluginData.name, pluginData.plugin));
         await PluginManager.enable(
-            this.swapContract,
-            this.btcRelay,
-            this.chainEvents,
+            this.multichainData,
             this.bitcoinRpc,
             this.LND,
             this.prices,
-            this.tokens,
+            tokenData,
             process.env.PLUGINS_DIR
         );
     }
@@ -304,7 +310,7 @@ export class SolanaIntermediaryRunner<T extends SwapData> extends EventEmitter {
 
         if(IntermediaryConfig.ONCHAIN!=null) {
             this.swapHandlers.push(
-                new ToBtcAbs<T>(new IntermediaryStorageManager(this.directory + "/tobtc"), "/tobtc", this.swapContract, this.chainEvents, this.allowedTokens, this.LND, this.prices, this.bitcoinRpc, {
+                new ToBtcAbs(new IntermediaryStorageManager(this.directory + "/tobtc"), "/tobtc", this.multichainData, this.LND, this.prices, this.bitcoinRpc, {
                     authorizationTimeout: AUTHORIZATION_TIMEOUT,
                     bitcoinBlocktime: BITCOIN_BLOCKTIME,
                     gracePeriod: GRACE_PERIOD,
@@ -333,7 +339,7 @@ export class SolanaIntermediaryRunner<T extends SwapData> extends EventEmitter {
                 })
             );
             this.swapHandlers.push(
-                new FromBtcAbs<T>(new IntermediaryStorageManager(this.directory + "/frombtc"), "/frombtc", this.swapContract, this.chainEvents, this.allowedTokens, this.LND, this.prices, {
+                new FromBtcAbs(new IntermediaryStorageManager(this.directory + "/frombtc"), "/frombtc", this.multichainData, this.LND, this.prices, {
                     authorizationTimeout: AUTHORIZATION_TIMEOUT,
                     bitcoinBlocktime: BITCOIN_BLOCKTIME,
                     baseFee: IntermediaryConfig.ONCHAIN.BASE_FEE,
@@ -356,7 +362,7 @@ export class SolanaIntermediaryRunner<T extends SwapData> extends EventEmitter {
 
         if(IntermediaryConfig.LN!=null) {
             this.swapHandlers.push(
-                new ToBtcLnAbs<T>(new IntermediaryStorageManager(this.directory+"/tobtcln"), "/tobtcln", this.swapContract, this.chainEvents, this.allowedTokens, this.LND, this.prices, {
+                new ToBtcLnAbs(new IntermediaryStorageManager(this.directory+"/tobtcln"), "/tobtcln", this.multichainData, this.LND, this.prices, {
                     authorizationTimeout: AUTHORIZATION_TIMEOUT,
                     bitcoinBlocktime: BITCOIN_BLOCKTIME,
                     gracePeriod: GRACE_PERIOD,
@@ -378,7 +384,7 @@ export class SolanaIntermediaryRunner<T extends SwapData> extends EventEmitter {
                 })
             );
             this.swapHandlers.push(
-                new FromBtcLnAbs<T>(new IntermediaryStorageManager(this.directory+"/frombtcln"), "/frombtcln", this.swapContract, this.chainEvents, this.allowedTokens, this.LND, this.prices, {
+                new FromBtcLnAbs(new IntermediaryStorageManager(this.directory+"/frombtcln"), "/frombtcln", this.multichainData, this.LND, this.prices, {
                     authorizationTimeout: AUTHORIZATION_TIMEOUT,
                     bitcoinBlocktime: BITCOIN_BLOCKTIME,
                     gracePeriod: GRACE_PERIOD,
@@ -527,48 +533,52 @@ export class SolanaIntermediaryRunner<T extends SwapData> extends EventEmitter {
     }
 
     async init() {
-        this.setState(SolanaInitState.WAIT_BTC_RPC);
+        this.setState(IntermediaryInitState.WAIT_BTC_RPC);
         await this.waitForBitcoinRpc();
-        this.setState(SolanaInitState.WAIT_LND_WALLET);
+        this.setState(IntermediaryInitState.WAIT_LND_WALLET);
         await this.waitForLNDWallet();
-        this.setState(SolanaInitState.WAIT_LND_SYNC);
+        this.setState(IntermediaryInitState.WAIT_LND_SYNC);
         this.LND = getAuthenticatedLndGrpc();
         await this.waitForLNDSync();
 
-        this.setState(SolanaInitState.CONTRACT_INIT);
-        await this.swapContract.start();
+        this.setState(IntermediaryInitState.CONTRACT_INIT);
+        for(let chainId in this.multichainData.chains) {
+            await this.multichainData.chains[chainId].swapContract.start();
+        }
         console.log("[Main]: Swap contract initialized!");
 
-        this.setState(SolanaInitState.LOAD_PLUGINS);
+        this.setState(IntermediaryInitState.LOAD_PLUGINS);
         await this.registerPlugins();
 
         console.log("[Main]: Plugins registered!");
 
-        this.setState(SolanaInitState.REGISTER_HANDLERS);
+        this.setState(IntermediaryInitState.REGISTER_HANDLERS);
         this.registerSwapHandlers();
-        this.infoHandler = new InfoHandler<T>(this.swapContract, "", this.swapHandlers);
+        this.infoHandler = new InfoHandler(this.multichainData, "", this.swapHandlers);
 
         console.log("[Main]: Swap handlers registered!");
 
-        this.setState(SolanaInitState.INIT_HANDLERS);
+        this.setState(IntermediaryInitState.INIT_HANDLERS);
         await this.initSwapHandlers();
 
         console.log("[Main]: Swap handlers initialized!");
 
-        this.setState(SolanaInitState.INIT_EVENTS);
-        await this.chainEvents.init();
+        this.setState(IntermediaryInitState.INIT_EVENTS);
+        for(let chainId in this.multichainData.chains) {
+            await this.multichainData.chains[chainId].chainEvents.init();
+        }
 
         console.log("[Main]: Chain events synchronized!");
 
-        this.setState(SolanaInitState.INIT_WATCHDOGS);
+        this.setState(IntermediaryInitState.INIT_WATCHDOGS);
         await this.startHandlerWatchdogs();
 
         console.log("[Main]: Watchdogs started!");
 
-        this.setState(SolanaInitState.START_REST);
+        this.setState(IntermediaryInitState.START_REST);
         await this.startRestServer();
 
-        this.setState(SolanaInitState.READY);
+        this.setState(IntermediaryInitState.READY);
     }
 
 }

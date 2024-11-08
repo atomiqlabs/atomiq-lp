@@ -2,15 +2,13 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 import * as fs from "fs/promises";
-import AnchorSigner from "./chains/solana/signer/AnchorSigner";
 import {testnet} from "bitcoinjs-lib/src/networks";
-import {SolanaBtcRelay, SolanaFees, SolanaSwapProgram, StoredDataAccount} from "crosslightning-solana";
-import {BinanceSwapPrice, StorageManager} from "crosslightning-intermediary";
+import {BinanceSwapPrice, ChainData, MultichainData} from "crosslightning-intermediary";
 import {BitcoindRpc} from "btcrelay-bitcoind";
-import {SolanaChainEvents} from "crosslightning-solana/dist/solana/events/SolanaChainEvents";
 import {IntermediaryConfig} from "./IntermediaryConfig";
-import {SolanaIntermediaryRunnerWrapper} from "./runner/SolanaIntermediaryRunnerWrapper";
-import {PublicKey} from "@solana/web3.js";
+import {IntermediaryRunnerWrapper} from "./runner/IntermediaryRunnerWrapper";
+import {ChainInitializer, RegisteredChains} from "./chains/ChainInitializer";
+import {Command} from "crosslightning-server-base";
 
 const bitcoin_chainparams = { ...testnet };
 bitcoin_chainparams.bip32 = {
@@ -25,22 +23,34 @@ async function main() {
         await fs.mkdir(directory)
     } catch (e) {}
 
+    //Setup prices and allowed tokens
+    const allowedTokens: {
+        [chainIdentifier: string]: string[]
+    } = {};
     const coinMap: {
-        [address: string]: {
-            pair: string,
-            decimals: number,
-            // invert: boolean
+        [pair: string]: {
+            [chain: string]: {
+                address: string,
+                decimals: number
+            }
         }
     } = {};
     for(let asset in IntermediaryConfig.ASSETS) {
         const assetData: {
-            address: PublicKey,
-            decimals: number,
-            pricing: string
+            chains: {
+                [chain: string]: {
+                    address: string,
+                    decimals: number
+                }
+            },
+            pricing: string,
+            disabled?: boolean
         } = IntermediaryConfig.ASSETS[asset];
-        coinMap[assetData.address.toString()] = {
-            pair: assetData.pricing,
-            decimals: assetData.decimals
+        coinMap[assetData.pricing] = assetData.chains;
+
+        if(!assetData.disabled) for(let chain in assetData.chains) {
+            if(allowedTokens[chain]==null) allowedTokens[chain] = [];
+            allowedTokens[chain].push(assetData.chains[chain].address);
         }
     }
     const prices = new BinanceSwapPrice(null, coinMap);
@@ -56,29 +66,46 @@ async function main() {
     console.log("[Main]: Running in bitcoin "+IntermediaryConfig.BITCOIND.NETWORK+" mode!");
     console.log("[Main]: Using RPC: "+IntermediaryConfig.SOLANA.RPC_URL+"!");
 
-    const btcRelay = new SolanaBtcRelay(AnchorSigner, bitcoinRpc, process.env.BTC_RELAY_CONTRACT_ADDRESS);
-    const swapContract = new SolanaSwapProgram(
-        AnchorSigner,
-        btcRelay,
-        new StorageManager<StoredDataAccount>(directory+"/solaccounts"),
-        process.env.SWAP_CONTRACT_ADDRESS,
-        null,
-        new SolanaFees(
-            AnchorSigner.connection,
-            IntermediaryConfig.SOLANA.MAX_FEE_MICRO_LAMPORTS,
-            8,
-            100,
-            "auto",
-            IntermediaryConfig.STATIC_TIP!=null ? () => IntermediaryConfig.STATIC_TIP : null,
-            IntermediaryConfig.JITO!=null ? {
-                address: IntermediaryConfig.JITO.PUBKEY.toString(),
-                endpoint: IntermediaryConfig.JITO.ENDPOINT
-            } : null
-        )
-    );
-    const chainEvents = new SolanaChainEvents(directory, AnchorSigner, swapContract);
+    //Create multichain data object
+    const chains: {[chainId: string]: ChainData & {commands?: Command<any>[]}} = {};
+    const registeredChains: {[chainId: string]: ChainInitializer<any, any, any>} = RegisteredChains;
+    for(let chainId in registeredChains) {
+        chains[chainId] = registeredChains[chainId].loadChain(IntermediaryConfig[chainId], bitcoinRpc, allowedTokens[chainId] ?? []);
+    }
+    const multiChainData: MultichainData = {
+        chains,
+        default: "SOLANA"
+    };
 
-    const runner = new SolanaIntermediaryRunnerWrapper(directory, AnchorSigner, IntermediaryConfig.ASSETS, prices, bitcoinRpc, btcRelay, swapContract, chainEvents);
+    //Check token addresses are valid
+    for(let asset in IntermediaryConfig.ASSETS) {
+        const assetData: {
+            chains: {
+                [chain: string]: {
+                    address: string,
+                    decimals: number
+                }
+            },
+            pricing: string,
+            disabled?: boolean
+        } = IntermediaryConfig.ASSETS[asset];
+        for(let chainId in assetData.chains) {
+            const {address} = assetData.chains[chainId];
+            const chainData = chains[chainId];
+            if(chainData==null) throw new Error("Unknown chain identifier ("+chainId+") while checking tokens, known chains: "+Object.keys(chains).join());
+            try {
+                chainData.swapContract.toTokenAddress(address);
+            } catch (e) {
+                console.error(e);
+                throw new Error("Invalid token address specified for token: "+asset+" chain: "+chainId);
+            }
+        }
+    }
+
+    const runner = new IntermediaryRunnerWrapper(directory, multiChainData, IntermediaryConfig.ASSETS, prices, bitcoinRpc);
+    for(let chainId in chains) {
+        if(chains[chainId].commands!=null) chains[chainId].commands.forEach(cmd => runner.cmdHandler.registerCommand(cmd));
+    }
     await runner.init();
 }
 

@@ -2,17 +2,21 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 import {getOrCreateAssociatedTokenAccount, mintTo} from "@solana/spl-token";
-import AnchorSigner from "../chains/solana/signer/AnchorSigner";
+import {getSolanaSigner} from "../chains/solana/signer/AnchorSigner";
 import {PublicKey} from "@solana/web3.js";
 import {IntermediaryConfig} from "../IntermediaryConfig";
+
+const AnchorSigner = getSolanaSigner(IntermediaryConfig.SOLANA);
 
 async function mint(amount: number, acc: PublicKey, token: string): Promise<boolean> {
     let useToken = IntermediaryConfig.ASSETS[token];
     if(useToken==null) return false;
 
-    const ata = await getOrCreateAssociatedTokenAccount(AnchorSigner.connection, AnchorSigner.signer, useToken.address, acc);
+    const address = new PublicKey(useToken.chains["SOLANA"].address);
 
-    const signature = await mintTo(AnchorSigner.connection, AnchorSigner.signer, useToken.address, ata.address, AnchorSigner.signer, amount);
+    const ata = await getOrCreateAssociatedTokenAccount(AnchorSigner.connection, AnchorSigner.signer, address, acc);
+
+    const signature = await mintTo(AnchorSigner.connection, AnchorSigner.signer, address, ata.address, AnchorSigner.signer, amount);
 
     console.log("Mint signature: ", signature);
 

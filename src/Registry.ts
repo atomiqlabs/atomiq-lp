@@ -30,7 +30,7 @@ export class Registry {
                 "title": (testnet ? "[Testnet]" : "[Mainnet]")+" Add new LP node: "+url,
                 "commit": "Add new LP node URL",
                 "files": [
-                    {"path": (testnet ? "testnet/" : "mainnet/")+new URL(url).hostname+".txt", "content": "https://81-17-102-136.nip.io:4000"}
+                    {"path": (testnet ? "testnet/" : "mainnet/")+new URL(url).hostname+".txt", "content": url}
                 ]
             })
         });

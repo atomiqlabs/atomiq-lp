@@ -1,6 +1,4 @@
-import * as BN from "bn.js";
 import {
-    bnParser,
     booleanParser, decimalToBNParser,
     dictionaryParserWithKeys,
     enumParser,
@@ -8,37 +6,28 @@ import {
     objectParser,
     parseConfig, percentageToPpmParser,
     stringParser,
-    dictionaryParser,
-    ConfigParser
+    dictionaryParser
 } from "crosslightning-server-base";
 import * as fs from "fs";
 import {parse} from "yaml";
-import {PublicKey} from "@solana/web3.js";
+import {RegisteredChains} from "./chains/ChainInitializer";
 
-export const publicKeyParser: (optional?: boolean) => ConfigParser<PublicKey> = (optional?: boolean) => (data: any) => {
-    if(data==null) {
-        if(optional) {
-            return null;
-        } else {
-            throw new Error("Data is null");
-        }
+function getAllowedChains<T>(obj: T): (keyof T)[] {
+    return Object.keys(obj) as (keyof T)[];
+}
+
+function getConfigs<T extends { [key: string]: { configuration: any } }>(chainData: T): { [K in keyof T]: T[K]['configuration'] } {
+    const result = {} as { [K in keyof T]: T[K]['configuration'] };
+    for (const key in chainData) {
+        result[key] = chainData[key].configuration;
     }
-    if(typeof(data)!=="string") throw new Error("Invalid data, must be string");
-    return new PublicKey(data);
-};
+    return result;
+}
+
+const allowedChains = getAllowedChains(RegisteredChains);
 
 const IntermediaryConfigTemplate = {
-    SOLANA: objectParser({
-        RPC_URL: stringParser(),
-        MAX_FEE_MICRO_LAMPORTS: numberParser(false, 1000),
-
-        MNEMONIC_FILE: stringParser(null, null, true),
-        PRIVKEY: stringParser(128, 128, true),
-        ADDRESS: publicKeyParser(true),
-        SECURITY_DEPOSIT_APY: percentageToPpmParser(0)
-    }, (data) => {
-        if(data.MNEMONIC_FILE==null && data.PRIVKEY==null) throw new Error("Mnemonic file or explicit private key must be specified!");
-    }),
+    ...getConfigs(RegisteredChains),
 
     BITCOIND: objectParser({
         PROTOCOL: enumParser(["http", "https"]),
@@ -48,13 +37,6 @@ const IntermediaryConfigTemplate = {
         RPC_PASSWORD: stringParser(),
         NETWORK: enumParser(["mainnet", "testnet"]),
     }),
-
-    JITO: objectParser({
-        PUBKEY: publicKeyParser(),
-        ENDPOINT: stringParser(),
-    }, null, true),
-
-    STATIC_TIP: bnParser(new BN(0), null, true),
 
     LND: objectParser({
         MNEMONIC_FILE: stringParser(null, null, true),
@@ -94,8 +76,13 @@ const IntermediaryConfigTemplate = {
 
     ASSETS: dictionaryParser(
         objectParser({
-            address: publicKeyParser(),
-            decimals: numberParser(false, 0),
+            chains: dictionaryParserWithKeys(
+                objectParser({
+                    address: stringParser(),
+                    decimals: numberParser(false, 0)
+                }, null, true),
+                allowedChains
+            ),
             pricing: stringParser(),
             disabled: booleanParser(true)
         })

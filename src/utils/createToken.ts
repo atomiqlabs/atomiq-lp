@@ -3,8 +3,11 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 import {createMint} from "@solana/spl-token";
-import AnchorSigner from "../chains/solana/signer/AnchorSigner";
+import {getSolanaSigner} from "../chains/solana/signer/AnchorSigner";
 import {parse, stringify} from "yaml";
+import {IntermediaryConfig} from "../IntermediaryConfig";
+
+const AnchorSigner = getSolanaSigner(IntermediaryConfig.SOLANA);
 
 async function main() {
     const result = parse(fs.readFileSync(process.env.CONFIG_FILE).toString());

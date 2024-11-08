@@ -1,10 +1,10 @@
-import {BitcoinRpc, BtcRelay, ChainEvents, ChainSwapType, SwapContract, SwapData} from "crosslightning-base";
+import {BitcoinRpc, ChainSwapType} from "crosslightning-base";
 import {
     FromBtcLnSwapAbs,
     FromBtcLnSwapState,
     FromBtcSwapAbs,
     FromBtcSwapState,
-    ISwapPrice,
+    ISwapPrice, MultichainData,
     PluginManager,
     SwapHandlerType,
     ToBtcLnSwapAbs,
@@ -12,7 +12,7 @@ import {
     ToBtcSwapAbs,
     ToBtcSwapState
 } from "crosslightning-intermediary";
-import {SolanaIntermediaryRunner} from "./SolanaIntermediaryRunner";
+import {IntermediaryRunner} from "./IntermediaryRunner";
 import * as BN from "bn.js";
 import {
     cmdEnumParser,
@@ -21,8 +21,6 @@ import {
     CommandHandler,
     createCommand
 } from "crosslightning-server-base";
-import {AnchorProvider} from "@coral-xyz/anchor";
-import {Keypair, PublicKey} from "@solana/web3.js";
 import {getP2wpkhPubkey, getUnauthenticatedLndGrpc} from "../btc/LND";
 import * as lncli from "ln-service";
 import {fromDecimal, toDecimal} from "../Utils";
@@ -33,43 +31,63 @@ import {Registry} from "../Registry";
 import * as bolt11 from "bolt11";
 import {UnauthenticatedLnd} from "lightning";
 
-export class SolanaIntermediaryRunnerWrapper<T extends SwapData> extends SolanaIntermediaryRunner<T> {
+export class IntermediaryRunnerWrapper extends IntermediaryRunner {
 
     cmdHandler: CommandHandler;
     lpRegistry: Registry;
     addressesToTokens: {
-        [address: string]: {
-            ticker: string,
-            decimals: number
+        [chainId: string]: {
+            [address: string]: {
+                ticker: string,
+                decimals: number
+            }
         }
+    };
+
+    fromReadableToken(txt: string) {
+        const arr = txt.split("-");
+        if(arr.length>1) {
+            return {ticker: txt.substring(arr[0].length+1), chainId: arr[0]}
+        } else {
+            return {ticker: txt, chainId: this.multichainData.default};
+        }
+    }
+
+    toReadableToken(chainId: string, ticker: string) {
+        return chainId+"-"+ticker;
     }
 
     constructor(
         directory: string,
-        signer: (AnchorProvider & {signer: Keypair}),
+        multichainData: MultichainData,
         tokens: {
             [ticker: string]: {
-                address: PublicKey,
-                decimals: number,
+                chains: {
+                    [chainIdentifier: string] : {
+                        address: string,
+                        decimals: number
+                    }
+                },
                 pricing: string,
-                boolean?: boolean
+                disabled?: boolean
             }
         },
-        prices: ISwapPrice,
-        bitcoinRpc: BitcoinRpc<any>,
-        btcRelay: BtcRelay<any, any, any>,
-        swapContract: SwapContract<T, any, any, any>,
-        chainEvents: ChainEvents<T>
+        prices: ISwapPrice<any>,
+        bitcoinRpc: BitcoinRpc<any>
     ) {
-        super(directory, signer, tokens, prices, bitcoinRpc, btcRelay, swapContract, chainEvents);
+        super(directory, multichainData, tokens, prices, bitcoinRpc);
         this.lpRegistry = new Registry(directory+"/lpRegistration.txt");
         this.addressesToTokens = {};
-        const tokenTickers = Object.keys(this.tokens);
+        const tokenTickers = [];
         for(let ticker in this.tokens) {
-            const tokenData = this.tokens[ticker];
-            this.addressesToTokens[tokenData.address.toString()] = {
-                decimals: tokenData.decimals,
-                ticker
+            for(let chainId in this.tokens[ticker].chains) {
+                if(this.addressesToTokens[chainId]==null) this.addressesToTokens[chainId] = {};
+                const tokenData = this.tokens[ticker].chains[chainId];
+                this.addressesToTokens[chainId][tokenData.address] = {
+                    decimals: tokenData.decimals,
+                    ticker
+                };
+                tokenTickers.push(this.toReadableToken(chainId, ticker));
             }
         }
         this.cmdHandler = new CommandHandler([
@@ -81,14 +99,24 @@ export class SolanaIntermediaryRunnerWrapper<T extends SwapData> extends SolanaI
                     parser: async (args) => {
                         const reply: string[] = [];
 
-                        let solRpcOK = true;
-                        try {
-                            await this.signer.connection.getLatestBlockhash();
-                        } catch (e) {
-                            solRpcOK = false;
+                        reply.push("SmartChains status:");
+                        for(let chainId in this.multichainData.chains) {
+                            const swapContract = this.multichainData.chains[chainId].swapContract;
+                            const nativeTokenAddress = swapContract.getNativeCurrencyAddress();
+                            const {decimals, ticker} = this.addressesToTokens[chainId][nativeTokenAddress.toString()];
+                            let nativeTokenBalance: BN;
+                            try {
+                                nativeTokenBalance = await swapContract.getBalance(nativeTokenAddress, false);
+                            } catch (e) {
+                                console.error(e);
+                            }
+                            reply.push("    "+chainId+":");
+                            reply.push("        RPC status: "+(nativeTokenBalance!=null ? "ready" : "offline!"));
+                            if(nativeTokenBalance!=null) {
+                                reply.push("        Funds: " + toDecimal(nativeTokenBalance, decimals)+" "+ticker);
+                                reply.push("        Has enough funds (>0.1): " + (nativeTokenBalance.gt(new BN(100000000)) ? "yes" : "no"));
+                            }
                         }
-                        reply.push("Solana RPC status:");
-                        reply.push("    Status: "+(solRpcOK ? "ready" : "offline!"));
 
                         const btcRpcStatus = await this.bitcoinRpc.getSyncInfo().catch(e => null);
                         reply.push("Bitcoin RPC status:");
@@ -124,11 +152,7 @@ export class SolanaIntermediaryRunnerWrapper<T extends SwapData> extends SolanaI
                             }
                         }
 
-                        const balance = await this.swapContract.getBalance(this.swapContract.getNativeCurrencyAddress(), false);
-                        reply.push("Intermediary status:");
-                        reply.push("    Status: " + this.initState);
-                        reply.push("    Funds: " + (balance.toNumber()/Math.pow(10, 9)).toFixed(9));
-                        reply.push("    Has enough funds (>0.1 SOL): " + (balance.gt(new BN(100000000)) ? "yes" : "no"));
+                        reply.push("Intermediary status: "+this.initState);
 
                         return reply.join("\n");
                     }
@@ -136,12 +160,15 @@ export class SolanaIntermediaryRunnerWrapper<T extends SwapData> extends SolanaI
             ),
             createCommand(
                 "getaddress",
-                "Gets the Solana & Bitcoin address of the node",
+                "Gets the SmartChains & Bitcoin address of the node",
                 {
                     args: {},
                     parser: async (args) => {
                         const reply: string[] = [];
-                        reply.push("Solana address: "+this.swapContract.getAddress());
+                        for(let chainId in this.multichainData.chains) {
+                            const swapContract = this.multichainData.chains[chainId].swapContract;
+                            reply.push(chainId+" address: "+swapContract.getAddress());
+                        }
 
                         let bitcoinAddress: string;
                         let lnd: UnauthenticatedLnd;
@@ -192,15 +219,23 @@ export class SolanaIntermediaryRunnerWrapper<T extends SwapData> extends SolanaI
                     args: {},
                     parser: async (args) => {
                         const reply: string[] = [];
-                        reply.push("Solana wallet balances (non-trading):");
-                        for(let token in this.tokens) {
-                            const tokenData = this.tokens[token];
-                            reply.push("   "+token+": "+toDecimal(await this.swapContract.getBalance(tokenData.address, false), tokenData.decimals));
+                        reply.push("Wallet balances (non-trading):");
+                        for(let chainId in this.addressesToTokens) {
+                            const swapContract = this.multichainData.chains[chainId].swapContract;
+                            for(let tokenAddress in this.addressesToTokens[chainId]) {
+                                const tokenData = this.addressesToTokens[chainId][tokenAddress];
+                                const tokenBalance = await swapContract.getBalance(swapContract.toTokenAddress(tokenAddress), false);
+                                reply.push("   "+this.toReadableToken(chainId, tokenData.ticker)+": "+toDecimal(tokenBalance, tokenData.decimals));
+                            }
                         }
                         reply.push("LP Vault balances (trading):");
-                        for(let token in this.tokens) {
-                            const tokenData = this.tokens[token];
-                            reply.push("   "+token+": "+toDecimal(await this.swapContract.getBalance(tokenData.address, true) || new BN(0), tokenData.decimals));
+                        for(let chainId in this.addressesToTokens) {
+                            const swapContract = this.multichainData.chains[chainId].swapContract;
+                            for(let tokenAddress in this.addressesToTokens[chainId]) {
+                                const tokenData = this.addressesToTokens[chainId][tokenAddress];
+                                const tokenBalance = await swapContract.getBalance(swapContract.toTokenAddress(tokenAddress), true);
+                                reply.push("   "+this.toReadableToken(chainId, tokenData.ticker)+": "+toDecimal(tokenBalance || new BN(0), tokenData.decimals));
+                            }
                         }
 
                         reply.push("Bitcoin balances (trading):");
@@ -448,11 +483,14 @@ export class SolanaIntermediaryRunnerWrapper<T extends SwapData> extends SolanaI
                             return "Transaction sent, txId: "+resp.id;
                         }
 
-                        const tokenData = this.tokens[args.asset];
+                        const {chainId, ticker} = this.fromReadableToken(args.asset);
+
+                        const swapContract = this.multichainData.chains[chainId].swapContract;
+                        const tokenData = this.tokens[ticker].chains[chainId];
                         const amtBN = fromDecimal(args.amount.toFixed(tokenData.decimals), tokenData.decimals);
 
-                        const txns = await this.swapContract.txsTransfer(tokenData.address, amtBN, args.address);
-                        await this.swapContract.sendAndConfirm(txns, true, null, null, (txId: string) => {
+                        const txns = await swapContract.txsTransfer(tokenData.address, amtBN, args.address);
+                        await swapContract.sendAndConfirm(txns, true, null, null, (txId: string) => {
                             sendLine("Transaction sent, signature: "+txId+" waiting for confirmation...");
                             return Promise.resolve();
                         });
@@ -509,7 +547,7 @@ export class SolanaIntermediaryRunnerWrapper<T extends SwapData> extends SolanaI
             ),
             createCommand(
                 "deposit",
-                "Deposits Solana wallet balance to an LP Vault",
+                "Deposits smartchain wallet balance to an LP Vault",
                 {
                     args: {
                         asset: {
@@ -524,11 +562,15 @@ export class SolanaIntermediaryRunnerWrapper<T extends SwapData> extends SolanaI
                         }
                     },
                     parser: async (args, sendLine) => {
-                        const tokenData = this.tokens[args.asset];
+                        const {chainId, ticker} = this.fromReadableToken(args.asset);
+
+                        const swapContract = this.multichainData.chains[chainId].swapContract;
+                        const tokenData = this.tokens[ticker].chains[chainId];
+
                         const amtBN = fromDecimal(args.amount.toFixed(tokenData.decimals), tokenData.decimals);
 
-                        const txns = await this.swapContract.txsDeposit(tokenData.address, amtBN);
-                        await this.swapContract.sendAndConfirm(txns, true, null, null, (txId: string) => {
+                        const txns = await swapContract.txsDeposit(tokenData.address, amtBN);
+                        await swapContract.sendAndConfirm(txns, true, null, null, (txId: string) => {
                             sendLine("Transaction sent, signature: "+txId+" waiting for confirmation...");
                             return Promise.resolve();
                         });
@@ -538,7 +580,7 @@ export class SolanaIntermediaryRunnerWrapper<T extends SwapData> extends SolanaI
             ),
             createCommand(
                 "withdraw",
-                "Withdraw LP Vault balance to node's Solana wallet",
+                "Withdraw LP Vault balance to node's SmartChain wallet",
                 {
                     args: {
                         asset: {
@@ -553,11 +595,14 @@ export class SolanaIntermediaryRunnerWrapper<T extends SwapData> extends SolanaI
                         }
                     },
                     parser: async (args, sendLine) => {
-                        const tokenData = this.tokens[args.asset];
+                        const {chainId, ticker} = this.fromReadableToken(args.asset);
+
+                        const swapContract = this.multichainData.chains[chainId].swapContract;
+                        const tokenData = this.tokens[ticker].chains[chainId];
                         const amtBN = fromDecimal(args.amount.toFixed(tokenData.decimals), tokenData.decimals);
 
-                        const txns = await this.swapContract.txsWithdraw(tokenData.address, amtBN);
-                        await this.swapContract.sendAndConfirm(txns, true, null, null, (txId: string) => {
+                        const txns = await swapContract.txsWithdraw(tokenData.address, amtBN);
+                        await swapContract.sendAndConfirm(txns, true, null, null, (txId: string) => {
                             sendLine("Transaction sent, signature: "+txId+" waiting for confirmation...");
                             return Promise.resolve();
                         });
@@ -573,47 +618,31 @@ export class SolanaIntermediaryRunnerWrapper<T extends SwapData> extends SolanaI
                     parser: async (args, sendLine) => {
                         const reply: string[] = [];
                         reply.push("LP node's reputation:");
-                        for(let token in this.tokens) {
-                            const tokenData = this.tokens[token];
-                            const reputation = await this.swapContract.getIntermediaryReputation(this.swapContract.getAddress(), tokenData.address);
-                            if(reputation==null) {
-                                reply.push(token+": No reputation");
-                                continue;
-                            }
-                            reply.push(token+":");
-                            const lnData = reputation[ChainSwapType.HTLC];
-                            reply.push("   LN:");
-                            reply.push("       successes: "+toDecimal(lnData.successVolume, tokenData.decimals)+" ("+lnData.successCount.toString(10)+" swaps)");
-                            reply.push("       fails: "+toDecimal(lnData.failVolume, tokenData.decimals)+" ("+lnData.failCount.toString(10)+" swaps)");
-                            reply.push("       coop closes: "+toDecimal(lnData.coopCloseVolume, tokenData.decimals)+" ("+lnData.coopCloseCount.toString(10)+" swaps)");
+                        for(let chainId in this.addressesToTokens) {
+                            const swapContract = this.multichainData.chains[chainId].swapContract;
+                            for(let tokenAddress in this.addressesToTokens[chainId]) {
+                                const {ticker, decimals} = this.addressesToTokens[chainId][tokenAddress];
 
-                            const onChainData = reputation[ChainSwapType.CHAIN];
-                            reply.push("   On-chain:");
-                            reply.push("       successes: "+toDecimal(onChainData.successVolume, tokenData.decimals)+" ("+onChainData.successCount.toString(10)+" swaps)");
-                            reply.push("       fails: "+toDecimal(onChainData.failVolume, tokenData.decimals)+" ("+onChainData.failCount.toString(10)+" swaps)");
-                            reply.push("       coop closes: "+toDecimal(onChainData.coopCloseVolume, tokenData.decimals)+" ("+onChainData.coopCloseCount.toString(10)+" swaps)");
+                                const reputation = await swapContract.getIntermediaryReputation(swapContract.getAddress(), swapContract.toTokenAddress(tokenAddress));
+                                if(reputation==null) {
+                                    reply.push(this.toReadableToken(chainId, ticker)+": No reputation");
+                                    continue;
+                                }
+                                reply.push(this.toReadableToken(chainId, ticker)+":");
+                                const lnData = reputation[ChainSwapType.HTLC];
+                                reply.push("   LN:");
+                                reply.push("       successes: "+toDecimal(lnData.successVolume, decimals)+" ("+lnData.successCount.toString(10)+" swaps)");
+                                reply.push("       fails: "+toDecimal(lnData.failVolume, decimals)+" ("+lnData.failCount.toString(10)+" swaps)");
+                                reply.push("       coop closes: "+toDecimal(lnData.coopCloseVolume, decimals)+" ("+lnData.coopCloseCount.toString(10)+" swaps)");
+
+                                const onChainData = reputation[ChainSwapType.CHAIN];
+                                reply.push("   On-chain:");
+                                reply.push("       successes: "+toDecimal(onChainData.successVolume, decimals)+" ("+onChainData.successCount.toString(10)+" swaps)");
+                                reply.push("       fails: "+toDecimal(onChainData.failVolume, decimals)+" ("+onChainData.failCount.toString(10)+" swaps)");
+                                reply.push("       coop closes: "+toDecimal(onChainData.coopCloseVolume, decimals)+" ("+onChainData.coopCloseCount.toString(10)+" swaps)");
+                            }
                         }
                         return reply.join("\n");
-                    }
-                }
-            ),
-            createCommand(
-                "airdrop",
-                "Requests an airdrop of SOL tokens (only works on devnet!)",
-                {
-                    args: {},
-                    parser: async (args, sendLine) => {
-                        let signature = await this.signer.connection.requestAirdrop(this.signer.publicKey, 1500000000);
-                        sendLine("Transaction sent, signature: "+signature+" waiting for confirmation...");
-                        const latestBlockhash = await this.signer.connection.getLatestBlockhash();
-                        await this.signer.connection.confirmTransaction(
-                            {
-                                signature,
-                                ...latestBlockhash,
-                            },
-                            "confirmed"
-                        );
-                        return "Airdrop transaction confirmed!";
                     }
                 }
             ),
@@ -685,9 +714,9 @@ export class SolanaIntermediaryRunnerWrapper<T extends SwapData> extends SolanaI
                         const swapData: string[] = [];
                         for(let swapHandler of this.swapHandlers) {
                             for(let _swap of await swapHandler.storageManager.query([])) {
-                                const tokenData = this.addressesToTokens[_swap.data.getToken().toString()];
+                                const tokenData = this.addressesToTokens[_swap.chainIdentifier][_swap.data.getToken().toString()];
                                 if(_swap.type===SwapHandlerType.TO_BTC) {
-                                    const swap = _swap as ToBtcSwapAbs<T>;
+                                    const swap = _swap as ToBtcSwapAbs;
                                     if(args.quotes!==1 && swap.state===ToBtcSwapState.SAVED) continue;
                                     const lines = [
                                         toDecimal(swap.data.getAmount(), tokenData.decimals)+" "+tokenData.ticker+" -> "+toDecimal(swap.amount, 8)+" BTC",
@@ -704,7 +733,7 @@ export class SolanaIntermediaryRunnerWrapper<T extends SwapData> extends SolanaI
                                     swapData.push(lines.join("\n"));
                                 }
                                 if(_swap.type===SwapHandlerType.TO_BTCLN) {
-                                    const swap = _swap as ToBtcLnSwapAbs<T>;
+                                    const swap = _swap as ToBtcLnSwapAbs;
                                     if(args.quotes!==1 && swap.state===ToBtcLnSwapState.SAVED) continue;
                                     const parsedPR = bolt11.decode(swap.pr);
                                     const sats = new BN(parsedPR.millisatoshis).div(new BN(1000));
@@ -722,7 +751,7 @@ export class SolanaIntermediaryRunnerWrapper<T extends SwapData> extends SolanaI
                                     swapData.push(lines.join("\n"));
                                 }
                                 if(_swap.type===SwapHandlerType.FROM_BTC) {
-                                    const swap = _swap as FromBtcSwapAbs<T>;
+                                    const swap = _swap as FromBtcSwapAbs;
                                     if(args.quotes!==1 && swap.state===FromBtcSwapState.CREATED) continue;
                                     const lines = [
                                         toDecimal(swap.amount, 8)+" BTC -> "+toDecimal(swap.data.getAmount(), tokenData.decimals)+" "+tokenData.ticker,
@@ -734,7 +763,7 @@ export class SolanaIntermediaryRunnerWrapper<T extends SwapData> extends SolanaI
                                     swapData.push(lines.join("\n"));
                                 }
                                 if(_swap.type===SwapHandlerType.FROM_BTCLN) {
-                                    const swap = _swap as FromBtcLnSwapAbs<T>;
+                                    const swap = _swap as FromBtcLnSwapAbs;
                                     if(args.quotes!==1 && swap.state===FromBtcLnSwapState.CREATED) continue;
                                     const parsedPR = bolt11.decode(swap.pr);
                                     const sats = new BN(parsedPR.millisatoshis).div(new BN(1000));
