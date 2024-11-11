@@ -94,7 +94,7 @@ async function main() {
             const chainData = chains[chainId];
             if(chainData==null) throw new Error("Unknown chain identifier ("+chainId+") while checking tokens, known chains: "+Object.keys(chains).join());
             try {
-                chainData.swapContract.toTokenAddress(address);
+                chainData.swapContract.isValidToken(address);
             } catch (e) {
                 console.error(e);
                 throw new Error("Invalid token address specified for token: "+asset+" chain: "+chainId);

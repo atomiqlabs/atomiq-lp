@@ -1,7 +1,6 @@
 import {exec} from "child_process";
-import {BitcoinRpc, BtcRelay, ChainEvents, SwapContract, SwapData} from "crosslightning-base";
-import {IPlugin, ISwapPrice} from "crosslightning-intermediary";
-import {SolanaSwapData} from "crosslightning-solana";
+import {SwapData} from "crosslightning-base";
+import {IPlugin} from "crosslightning-intermediary";
 import {IntermediaryConfig} from "./IntermediaryConfig";
 
 function execPromise(cmd: string): Promise<string> {

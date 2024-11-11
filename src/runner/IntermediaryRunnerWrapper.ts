@@ -101,12 +101,12 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
 
                         reply.push("SmartChains status:");
                         for(let chainId in this.multichainData.chains) {
-                            const swapContract = this.multichainData.chains[chainId].swapContract;
+                            const {swapContract, signer} = this.multichainData.chains[chainId];
                             const nativeTokenAddress = swapContract.getNativeCurrencyAddress();
                             const {decimals, ticker} = this.addressesToTokens[chainId][nativeTokenAddress.toString()];
                             let nativeTokenBalance: BN;
                             try {
-                                nativeTokenBalance = await swapContract.getBalance(nativeTokenAddress, false);
+                                nativeTokenBalance = await swapContract.getBalance(signer.getAddress(), nativeTokenAddress, false);
                             } catch (e) {
                                 console.error(e);
                             }
@@ -166,8 +166,8 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                     parser: async (args) => {
                         const reply: string[] = [];
                         for(let chainId in this.multichainData.chains) {
-                            const swapContract = this.multichainData.chains[chainId].swapContract;
-                            reply.push(chainId+" address: "+swapContract.getAddress());
+                            const {signer} = this.multichainData.chains[chainId];
+                            reply.push(chainId+" address: "+signer.getAddress());
                         }
 
                         let bitcoinAddress: string;
@@ -221,19 +221,19 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                         const reply: string[] = [];
                         reply.push("Wallet balances (non-trading):");
                         for(let chainId in this.addressesToTokens) {
-                            const swapContract = this.multichainData.chains[chainId].swapContract;
+                            const {swapContract, signer} = this.multichainData.chains[chainId];
                             for(let tokenAddress in this.addressesToTokens[chainId]) {
                                 const tokenData = this.addressesToTokens[chainId][tokenAddress];
-                                const tokenBalance = await swapContract.getBalance(swapContract.toTokenAddress(tokenAddress), false);
+                                const tokenBalance = await swapContract.getBalance(signer.getAddress(), tokenAddress, false);
                                 reply.push("   "+this.toReadableToken(chainId, tokenData.ticker)+": "+toDecimal(tokenBalance, tokenData.decimals));
                             }
                         }
                         reply.push("LP Vault balances (trading):");
                         for(let chainId in this.addressesToTokens) {
-                            const swapContract = this.multichainData.chains[chainId].swapContract;
+                            const {swapContract, signer} = this.multichainData.chains[chainId];
                             for(let tokenAddress in this.addressesToTokens[chainId]) {
                                 const tokenData = this.addressesToTokens[chainId][tokenAddress];
-                                const tokenBalance = await swapContract.getBalance(swapContract.toTokenAddress(tokenAddress), true);
+                                const tokenBalance = await swapContract.getBalance(signer.getAddress(),tokenAddress, true);
                                 reply.push("   "+this.toReadableToken(chainId, tokenData.ticker)+": "+toDecimal(tokenBalance || new BN(0), tokenData.decimals));
                             }
                         }
@@ -485,12 +485,12 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
 
                         const {chainId, ticker} = this.fromReadableToken(args.asset);
 
-                        const swapContract = this.multichainData.chains[chainId].swapContract;
+                        const {swapContract, signer} = this.multichainData.chains[chainId];
                         const tokenData = this.tokens[ticker].chains[chainId];
                         const amtBN = fromDecimal(args.amount.toFixed(tokenData.decimals), tokenData.decimals);
 
-                        const txns = await swapContract.txsTransfer(tokenData.address, amtBN, args.address);
-                        await swapContract.sendAndConfirm(txns, true, null, null, (txId: string) => {
+                        const txns = await swapContract.txsTransfer(signer.getAddress(), tokenData.address, amtBN, args.address);
+                        await swapContract.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
                             sendLine("Transaction sent, signature: "+txId+" waiting for confirmation...");
                             return Promise.resolve();
                         });
@@ -564,13 +564,13 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                     parser: async (args, sendLine) => {
                         const {chainId, ticker} = this.fromReadableToken(args.asset);
 
-                        const swapContract = this.multichainData.chains[chainId].swapContract;
+                        const {swapContract, signer} = this.multichainData.chains[chainId];
                         const tokenData = this.tokens[ticker].chains[chainId];
 
                         const amtBN = fromDecimal(args.amount.toFixed(tokenData.decimals), tokenData.decimals);
 
-                        const txns = await swapContract.txsDeposit(tokenData.address, amtBN);
-                        await swapContract.sendAndConfirm(txns, true, null, null, (txId: string) => {
+                        const txns = await swapContract.txsDeposit(signer.getAddress(), tokenData.address, amtBN);
+                        await swapContract.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
                             sendLine("Transaction sent, signature: "+txId+" waiting for confirmation...");
                             return Promise.resolve();
                         });
@@ -597,12 +597,12 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                     parser: async (args, sendLine) => {
                         const {chainId, ticker} = this.fromReadableToken(args.asset);
 
-                        const swapContract = this.multichainData.chains[chainId].swapContract;
+                        const {swapContract, signer} = this.multichainData.chains[chainId];
                         const tokenData = this.tokens[ticker].chains[chainId];
                         const amtBN = fromDecimal(args.amount.toFixed(tokenData.decimals), tokenData.decimals);
 
-                        const txns = await swapContract.txsWithdraw(tokenData.address, amtBN);
-                        await swapContract.sendAndConfirm(txns, true, null, null, (txId: string) => {
+                        const txns = await swapContract.txsWithdraw(signer.getAddress(), tokenData.address, amtBN);
+                        await swapContract.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
                             sendLine("Transaction sent, signature: "+txId+" waiting for confirmation...");
                             return Promise.resolve();
                         });
@@ -619,11 +619,11 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                         const reply: string[] = [];
                         reply.push("LP node's reputation:");
                         for(let chainId in this.addressesToTokens) {
-                            const swapContract = this.multichainData.chains[chainId].swapContract;
+                            const {swapContract, signer} = this.multichainData.chains[chainId];
                             for(let tokenAddress in this.addressesToTokens[chainId]) {
                                 const {ticker, decimals} = this.addressesToTokens[chainId][tokenAddress];
 
-                                const reputation = await swapContract.getIntermediaryReputation(swapContract.getAddress(), swapContract.toTokenAddress(tokenAddress));
+                                const reputation = await swapContract.getIntermediaryReputation(signer.getAddress(), tokenAddress);
                                 if(reputation==null) {
                                     reply.push(this.toReadableToken(chainId, ticker)+": No reputation");
                                     continue;

@@ -1,5 +1,11 @@
 import {ChainInitializer} from "../ChainInitializer";
-import {SolanaBtcRelay, SolanaFees, SolanaSwapData, SolanaSwapProgram, StoredDataAccount} from "crosslightning-solana";
+import {
+    SolanaBtcRelay, SolanaChainType,
+    SolanaFees,
+    SolanaSigner,
+    SolanaSwapProgram,
+    StoredDataAccount
+} from "crosslightning-solana";
 import {
     bnParser,
     createCommand,
@@ -44,14 +50,14 @@ const template = {
     STATIC_TIP: bnParser(new BN(0), null, true)
 };
 
-export const SolanaChainInitializer: ChainInitializer<SolanaSwapData, any, typeof template> = {
+export const SolanaChainInitializer: ChainInitializer<SolanaChainType, any, typeof template> = {
     loadChain: (configuration, bitcoinRpc, allowedTokens) => {
         const directory = process.env.STORAGE_DIR;
 
         const AnchorSigner = getSolanaSigner(configuration);
-        const btcRelay = new SolanaBtcRelay(AnchorSigner, bitcoinRpc, process.env.BTC_RELAY_CONTRACT_ADDRESS);
+        const btcRelay = new SolanaBtcRelay(AnchorSigner.connection, bitcoinRpc, process.env.BTC_RELAY_CONTRACT_ADDRESS);
         const swapContract = new SolanaSwapProgram(
-            AnchorSigner,
+            AnchorSigner.connection,
             btcRelay,
             new StorageManager<StoredDataAccount>(directory+"/solaccounts"),
             process.env.SWAP_CONTRACT_ADDRESS,
@@ -72,6 +78,7 @@ export const SolanaChainInitializer: ChainInitializer<SolanaSwapData, any, typeo
         const chainEvents = new SolanaChainEvents(directory, AnchorSigner, swapContract);
 
         return {
+            signer: new SolanaSigner(AnchorSigner.wallet, AnchorSigner.signer),
             swapContract,
             chainEvents,
             btcRelay,
