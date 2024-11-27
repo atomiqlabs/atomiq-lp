@@ -14,11 +14,11 @@ function execPromise(cmd: string): Promise<string> {
 
 export async function getEnabledPlugins<T extends SwapData>(): Promise<{
     name: string,
-    plugin: IPlugin<T>
+    plugin: IPlugin
 }[]> {
     const plugins: {
         name: string,
-        plugin: IPlugin<T>
+        plugin: IPlugin
     }[] = [];
     if(IntermediaryConfig.PLUGINS!=null) {
         for(let name in IntermediaryConfig.PLUGINS) {
@@ -26,7 +26,7 @@ export async function getEnabledPlugins<T extends SwapData>(): Promise<{
             console.log("Installing plugin: "+name+" packagename: "+packageName);
             await execPromise("npm i "+packageName);
             const result = await import(name);
-            const constructor: new () => IPlugin<T> = result.default;
+            const constructor: new () => IPlugin = result.default;
             plugins.push({
                 name,
                 plugin: new constructor()

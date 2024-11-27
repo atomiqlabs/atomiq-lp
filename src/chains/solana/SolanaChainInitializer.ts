@@ -75,7 +75,7 @@ export const SolanaChainInitializer: ChainInitializer<SolanaChainType, any, type
                 } : null
             )
         );
-        const chainEvents = new SolanaChainEvents(directory, AnchorSigner, swapContract);
+        const chainEvents = new SolanaChainEvents(directory, AnchorSigner.connection, swapContract);
 
         return {
             signer: new SolanaSigner(AnchorSigner.wallet, AnchorSigner.signer),

@@ -275,15 +275,18 @@ export class IntermediaryRunner extends EventEmitter {
 
     async registerPlugins(): Promise<void> {
         const tokenData: {
-            [ticker: string]: {
-                [chainId: string]: {
+            [chainId: string]: {
+                [ticker: string]: {
                     address: string,
                     decimals: number
                 }
             }
         } = {};
         for(let ticker in this.tokens) {
-            tokenData[ticker] = this.tokens[ticker].chains;
+            for(let chainId in this.tokens[ticker].chains) {
+                tokenData[chainId] ??= {};
+                tokenData[chainId][ticker] = this.tokens[ticker].chains[chainId];
+            }
         }
         const plugins = await getEnabledPlugins();
         plugins.forEach(pluginData => PluginManager.registerPlugin(pluginData.name, pluginData.plugin));
