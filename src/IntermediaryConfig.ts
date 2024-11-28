@@ -59,7 +59,9 @@ const IntermediaryConfigTemplate = {
         MAX: decimalToBNParser(8, 0),
 
         ALLOW_NON_PROBABLE_SWAPS: booleanParser(),
-        ALLOW_LN_SHORT_EXPIRY: booleanParser()
+        ALLOW_LN_SHORT_EXPIRY: booleanParser(),
+
+        INVOICE_EXPIRY_SECONDS: numberParser(false, 0, 3600, true)
     }, null, true),
 
     ONCHAIN: objectParser({

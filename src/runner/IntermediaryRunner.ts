@@ -383,7 +383,7 @@ export class IntermediaryRunner extends EventEmitter {
                     swapCheckInterval: 5*60*1000,
 
                     allowShortExpiry: IntermediaryConfig.LN.ALLOW_LN_SHORT_EXPIRY,
-                    allowProbeFailedSwaps: IntermediaryConfig.LN.ALLOW_NON_PROBABLE_SWAPS
+                    allowProbeFailedSwaps: IntermediaryConfig.LN.ALLOW_NON_PROBABLE_SWAPS,
                 })
             );
             this.swapHandlers.push(
@@ -401,7 +401,8 @@ export class IntermediaryRunner extends EventEmitter {
                     minCltv: new BN(20),
 
                     swapCheckInterval: 1*60*1000,
-                    securityDepositAPY: IntermediaryConfig.SOLANA.SECURITY_DEPOSIT_APY.toNumber()/1000000
+                    securityDepositAPY: IntermediaryConfig.SOLANA.SECURITY_DEPOSIT_APY.toNumber()/1000000,
+                    invoiceTimeoutSeconds: IntermediaryConfig.LN.INVOICE_EXPIRY_SECONDS
                 })
             );
         }
