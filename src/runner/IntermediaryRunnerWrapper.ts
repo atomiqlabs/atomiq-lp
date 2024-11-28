@@ -28,7 +28,7 @@ import * as bitcoin from "bitcoinjs-lib";
 import {BITCOIN_NETWORK} from "../constants/Constants";
 import {IntermediaryConfig} from "../IntermediaryConfig";
 import {Registry} from "../Registry";
-import * as bolt11 from "bolt11";
+import * as bolt11 from "@atomiqlabs/bolt11";
 import {UnauthenticatedLnd} from "lightning";
 
 export class IntermediaryRunnerWrapper extends IntermediaryRunner {
