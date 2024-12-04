@@ -76,6 +76,24 @@ const IntermediaryConfigTemplate = {
         MULTIPLY_NETWORK_FEE: numberParser(true, 0, null, true),
     }, null, true),
 
+    LN_TRUSTED: objectParser({
+        BASE_FEE: decimalToBNParser(8, 0),
+        FEE_PERCENTAGE: percentageToPpmParser(0),
+        MIN: decimalToBNParser(8, 0),
+        MAX: decimalToBNParser(8, 0),
+
+        INVOICE_EXPIRY_SECONDS: numberParser(false, 0, 3600, true)
+    }, null, true),
+
+    ONCHAIN_TRUSTED: objectParser({
+        BASE_FEE: decimalToBNParser(8, 0),
+        FEE_PERCENTAGE: percentageToPpmParser(0),
+        MIN: decimalToBNParser(8, 0),
+        MAX: decimalToBNParser(8, 0),
+
+        SWAP_EXPIRY_SECONDS: numberParser(false, 0, 72*3600, true)
+    }, null, true),
+
     ASSETS: dictionaryParser(
         objectParser({
             chains: dictionaryParserWithKeys(

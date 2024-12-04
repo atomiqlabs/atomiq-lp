@@ -13,7 +13,7 @@ import * as http2 from "http2";
 import * as fs from "fs/promises";
 import {
     FromBtcAbs,
-    FromBtcLnAbs,
+    FromBtcLnAbs, FromBtcLnTrusted, FromBtcTrusted,
     IBtcFeeEstimator,
     InfoHandler,
     IntermediaryStorageManager,
@@ -404,6 +404,64 @@ export class IntermediaryRunner extends EventEmitter {
                     securityDepositAPY: IntermediaryConfig.SOLANA.SECURITY_DEPOSIT_APY.toNumber()/1000000,
                     invoiceTimeoutSeconds: IntermediaryConfig.LN.INVOICE_EXPIRY_SECONDS
                 })
+            );
+        }
+        if(IntermediaryConfig.ONCHAIN_TRUSTED!=null) {
+            this.swapHandlers.push(
+                new FromBtcTrusted(
+                    new IntermediaryStorageManager(this.directory + "/frombtc_trusted"),
+                    "/frombtc_trusted",
+                    this.multichainData,
+                    this.LND,
+                    this.prices,
+                    this.bitcoinRpc,
+                    {
+                        authorizationTimeout: AUTHORIZATION_TIMEOUT,
+                        bitcoinBlocktime: BITCOIN_BLOCKTIME,
+                        baseFee: IntermediaryConfig.ONCHAIN_TRUSTED.BASE_FEE,
+                        feePPM: IntermediaryConfig.ONCHAIN_TRUSTED.FEE_PERCENTAGE,
+                        max: IntermediaryConfig.ONCHAIN_TRUSTED.MAX,
+                        min: IntermediaryConfig.ONCHAIN_TRUSTED.MIN,
+                        maxSkew: MAX_SOL_SKEW,
+                        safetyFactor: SAFETY_FACTOR,
+
+                        bitcoinNetwork: BITCOIN_NETWORK,
+                        feeEstimator: this.btcFeeEstimator,
+                        doubleSpendCheckInterval: 5000,
+                        swapAddressExpiry: IntermediaryConfig.ONCHAIN_TRUSTED.SWAP_EXPIRY_SECONDS ?? 3*3600,
+                        recommendFeeMultiplier: 1,
+
+                        swapCheckInterval: 5 * 60 * 1000,
+                        securityDepositAPY: null
+                    }
+                )
+            );
+        }
+        if(IntermediaryConfig.LN_TRUSTED!=null) {
+            this.swapHandlers.push(
+                new FromBtcLnTrusted(
+                    new IntermediaryStorageManager(this.directory+"/frombtcln_trusted"),
+                    "/frombtcln_trusted",
+                    this.multichainData,
+                    this.LND,
+                    this.prices,
+                    {
+                        authorizationTimeout: AUTHORIZATION_TIMEOUT,
+                        bitcoinBlocktime: BITCOIN_BLOCKTIME,
+                        baseFee: IntermediaryConfig.LN_TRUSTED.BASE_FEE,
+                        feePPM: IntermediaryConfig.LN_TRUSTED.FEE_PERCENTAGE,
+                        max: IntermediaryConfig.LN_TRUSTED.MAX,
+                        min: IntermediaryConfig.LN_TRUSTED.MIN,
+                        maxSkew: MAX_SOL_SKEW,
+                        safetyFactor: SAFETY_FACTOR,
+
+                        minCltv: new BN(20),
+
+                        swapCheckInterval: 1*60*1000,
+                        invoiceTimeoutSeconds: IntermediaryConfig.LN_TRUSTED.INVOICE_EXPIRY_SECONDS,
+                        securityDepositAPY: null
+                    }
+                )
             );
         }
     }
