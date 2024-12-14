@@ -1,9 +1,9 @@
-import {BitcoinRpc, ChainSwapType} from "crosslightning-base";
+import {BitcoinRpc, ChainSwapType} from "@atomiqlabs/base";
 import {
     FromBtcLnSwapAbs,
     FromBtcLnSwapState,
     FromBtcSwapAbs,
-    FromBtcSwapState,
+    FromBtcSwapState, IBitcoinWallet, ILightningWallet,
     ISwapPrice, MultichainData,
     PluginManager,
     SwapHandlerType,
@@ -11,7 +11,7 @@ import {
     ToBtcLnSwapState,
     ToBtcSwapAbs,
     ToBtcSwapState
-} from "crosslightning-intermediary";
+} from "@atomiqlabs/lp-lib";
 import {IntermediaryRunner} from "./IntermediaryRunner";
 import * as BN from "bn.js";
 import {
@@ -20,16 +20,11 @@ import {
     cmdStringParser,
     CommandHandler,
     createCommand
-} from "crosslightning-server-base";
-import {getP2wpkhPubkey, getUnauthenticatedLndGrpc} from "../btc/LND";
-import * as lncli from "ln-service";
+} from "@atomiqlabs/server-base";
 import {fromDecimal, toDecimal} from "../Utils";
-import * as bitcoin from "bitcoinjs-lib";
-import {BITCOIN_NETWORK} from "../constants/Constants";
 import {IntermediaryConfig} from "../IntermediaryConfig";
 import {Registry} from "../Registry";
 import * as bolt11 from "@atomiqlabs/bolt11";
-import {UnauthenticatedLnd} from "lightning";
 
 export class IntermediaryRunnerWrapper extends IntermediaryRunner {
 
@@ -73,9 +68,11 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
             }
         },
         prices: ISwapPrice<any>,
-        bitcoinRpc: BitcoinRpc<any>
+        bitcoinRpc: BitcoinRpc<any>,
+        bitcoinWallet: IBitcoinWallet,
+        lightningWallet: ILightningWallet
     ) {
-        super(directory, multichainData, tokens, prices, bitcoinRpc);
+        super(directory, multichainData, tokens, prices, bitcoinRpc, bitcoinWallet, lightningWallet);
         this.lpRegistry = new Registry(directory+"/lpRegistration.txt");
         this.addressesToTokens = {};
         const tokenTickers = [];
@@ -90,7 +87,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                 tokenTickers.push(this.toReadableToken(chainId, ticker));
             }
         }
-        this.cmdHandler = new CommandHandler([
+        const commands = [
             createCommand(
                 "status",
                 "Fetches the current status of the bitcoin RPC, LND gRPC & intermediary application",
@@ -118,41 +115,37 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             }
                         }
 
-                        const btcRpcStatus = await this.bitcoinRpc.getSyncInfo().catch(e => null);
-                        reply.push("Bitcoin RPC status:");
-                        reply.push("    Status: "+(btcRpcStatus==null ? "offline" : btcRpcStatus.ibd ? "verifying blockchain" : "ready"));
-                        if(btcRpcStatus!=null) {
-                            reply.push("    Verification progress: "+(btcRpcStatus.verificationProgress*100).toFixed(4)+"%");
-                            reply.push("    Synced headers: "+btcRpcStatus.headers);
-                            reply.push("    Synced blocks: "+btcRpcStatus.blocks);
-                        }
-
-                        let lndRpcStatus = "offline";
-                        try {
-                            const unauthenticatedRpc = getUnauthenticatedLndGrpc();
-                            lndRpcStatus =  await this.getLNDWalletStatus(unauthenticatedRpc);
-                        } catch (e) {
-                            console.error(e);
-                        }
-                        reply.push("LND gRPC status:");
-                        reply.push("    Wallet status: "+lndRpcStatus);
-                        if(lndRpcStatus!="offline") {
-                            try {
-                                const resp = await lncli.getWalletInfo({
-                                    lnd: this.LND
-                                });
-                                reply.push("    Synced to chain: "+resp.is_synced_to_chain);
-                                reply.push("    Blockheight: "+resp.current_block_height);
-                                reply.push("    Connected peers: "+resp.peers_count);
-                                reply.push("    Channels active: "+resp.active_channels_count);
-                                reply.push("    Channels pending: "+resp.pending_channels_count);
-                                reply.push("    Node pubkey: "+resp.public_key);
-                            } catch (e) {
-                                console.error(e);
+                        if(this.bitcoinRpc!=null) {
+                            const btcRpcStatus = await this.bitcoinRpc.getSyncInfo().catch(e => null);
+                            reply.push("Bitcoin RPC status:");
+                            reply.push("    Status: "+(btcRpcStatus==null ? "offline" : btcRpcStatus.ibd ? "verifying blockchain" : "ready"));
+                            if(btcRpcStatus!=null) {
+                                reply.push("    Verification progress: "+(btcRpcStatus.verificationProgress*100).toFixed(4)+"%");
+                                reply.push("    Synced headers: "+btcRpcStatus.headers);
+                                reply.push("    Synced blocks: "+btcRpcStatus.blocks);
                             }
                         }
 
-                        reply.push("Intermediary status: "+this.initState);
+                        if(this.bitcoinWallet!=null) {
+                            reply.push("Bitcoin wallet status:");
+                            reply.push("    Wallet status: "+this.bitcoinWallet.getStatus());
+                            const bitcoinInfo = this.bitcoinWallet.getStatusInfo();
+                            for(let key in bitcoinInfo) {
+                                reply.push("    "+key+": "+bitcoinInfo[key]);
+                            }
+                        }
+
+                        if(this.lightningWallet!=null) {
+                            reply.push("Lightning wallet status:");
+                            reply.push("    Wallet status: " + this.lightningWallet.getStatus());
+                            if (this.lightningWallet.isReady()) reply.push("    Node pubkey: " + await this.lightningWallet.getIdentityPublicKey());
+                            const lightningInfo = this.lightningWallet.getStatusInfo();
+                            for (let key in lightningInfo) {
+                                reply.push("    " + key + ": " + lightningInfo[key]);
+                            }
+                        }
+
+                        reply.push("LP node status: "+this.initState);
 
                         return reply.join("\n");
                     }
@@ -170,44 +163,12 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             reply.push(chainId+" address: "+signer.getAddress());
                         }
 
-                        let bitcoinAddress: string;
-                        let lnd: UnauthenticatedLnd;
-                        try {
-                            lnd = getUnauthenticatedLndGrpc();
-                        } catch (e) {
-                            console.error(e);
-                        }
-                        if(lnd!=null && this.LND!=null) {
-                            const walletStatus = await this.getLNDWalletStatus(lnd);
-                            if(walletStatus==="active") {
-                                const synced = await this.isLNDSynced();
-                                if(synced) {
-                                    const resp = await lncli.createChainAddress({
-                                        lnd: this.LND,
-                                        format: "p2wpkh"
-                                    }).catch(e => console.error(e));
-                                    if(resp!=null) {
-                                        bitcoinAddress = resp.address;
-                                    }
-                                }
-                            }
+                        if(!this.bitcoinWallet.isReady()) {
+                            reply.push("Bitcoin address: unknown (bitcoin wallet not ready)");
+                            return reply.join("\n");
                         }
 
-                        if(bitcoinAddress==null) {
-                            const pubkey = getP2wpkhPubkey();
-                            if(pubkey!=null) {
-                                const address = bitcoin.payments.p2wpkh({
-                                    pubkey,
-                                    network: BITCOIN_NETWORK
-                                }).address;
-                                bitcoinAddress = address;
-                            } else {
-                                reply.push("Bitcoin address: unknown (LND node unresponsive - not initialized?)");
-                                return reply.join("\n");
-                            }
-                        }
-
-                        reply.push("Bitcoin address: "+bitcoinAddress);
+                        reply.push("Bitcoin address: "+await this.bitcoinWallet.getAddress());
                         return reply.join("\n");
                     }
                 }
@@ -225,7 +186,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             for(let tokenAddress in this.addressesToTokens[chainId]) {
                                 const tokenData = this.addressesToTokens[chainId][tokenAddress];
                                 const tokenBalance = await swapContract.getBalance(signer.getAddress(), tokenAddress, false);
-                                reply.push("   "+this.toReadableToken(chainId, tokenData.ticker)+": "+toDecimal(tokenBalance, tokenData.decimals));
+                                reply.push("    "+this.toReadableToken(chainId, tokenData.ticker)+": "+toDecimal(tokenBalance, tokenData.decimals));
                             }
                         }
                         reply.push("LP Vault balances (trading):");
@@ -234,209 +195,29 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             for(let tokenAddress in this.addressesToTokens[chainId]) {
                                 const tokenData = this.addressesToTokens[chainId][tokenAddress];
                                 const tokenBalance = await swapContract.getBalance(signer.getAddress(),tokenAddress, true);
-                                reply.push("   "+this.toReadableToken(chainId, tokenData.ticker)+": "+toDecimal(tokenBalance || new BN(0), tokenData.decimals));
+                                reply.push("    "+this.toReadableToken(chainId, tokenData.ticker)+": "+toDecimal(tokenBalance || new BN(0), tokenData.decimals));
                             }
                         }
 
-                        reply.push("Bitcoin balances (trading):");
-                        const utxoResponse = await lncli.getUtxos({lnd: this.LND, min_confirmations: 0}).catch(e => console.error(e));
-                        if(utxoResponse==null) {
-                            reply.push("   BTC: unknown"+" (waiting for bitcoin node sync)");
-                        } else {
-                            let unconfirmed = new BN(0);
-                            let confirmed = new BN(0);
-                            utxoResponse.utxos.forEach(utxo => {
-                                if(utxo.confirmation_count===0) {
-                                    unconfirmed = unconfirmed.add(new BN(utxo.tokens));
-                                } else {
-                                    confirmed = confirmed.add(new BN(utxo.tokens));
-                                }
-                            });
-                            reply.push("   BTC: "+toDecimal(confirmed, 8)+" (+"+toDecimal(unconfirmed, 8)+")");
+                        if(this.bitcoinWallet!=null) {
+                            reply.push("Bitcoin balances (trading):");
+                            if(!this.bitcoinWallet.isReady()) {
+                                reply.push("    BTC: unknown (bitcoin wallet not ready)");
+                            } else {
+                                const balances = await this.bitcoinWallet.getBalance();
+                                reply.push("    BTC: "+toDecimal(new BN(balances.confirmed), 8)+" (+"+toDecimal(new BN(balances.unconfirmed), 8)+")");
+                            }
                         }
 
-                        const channelBalance = await lncli.getChannelBalance({lnd: this.LND}).catch(e => console.error(e));
-                        if(channelBalance==null) {
-                            reply.push("   BTC-LN: unknown (waiting for bitcoin node sync)");
-                        } else {
-                            reply.push("   BTC-LN: "+toDecimal(new BN(channelBalance.channel_balance), 8)+" (+"+toDecimal(new BN(channelBalance.pending_balance), 8)+")");
+                        if(this.lightningWallet!=null) {
+                            if(!this.lightningWallet.isReady()) {
+                                reply.push("    BTC-LN: unknown (lightning wallet not ready)");
+                            } else {
+                                const channelBalance = await this.lightningWallet.getLightningBalance();
+                                reply.push("    BTC-LN: "+toDecimal(new BN(channelBalance.localBalance), 8)+" (+"+toDecimal(new BN(channelBalance.unsettledBalance), 8)+")");
+                            }
                         }
 
-                        return reply.join("\n");
-                    }
-                }
-            ),
-            createCommand(
-                "connectlightning",
-                "Connect to a lightning node peer",
-                {
-                    args: {
-                        node: {
-                            base: true,
-                            description: "Remote node identification as <pubkey>@<ip address>",
-                            parser: (data: string) => {
-                                if(data==null) throw new Error("Data cannot be null");
-                                const arr = data.split("@");
-                                if(arr.length!==2) throw new Error("Invalid format, should be: <pubkey>@<ip address>");
-                                return {
-                                    pubkey: arr[0],
-                                    address: arr[1]
-                                };
-                            }
-                        }
-                    },
-                    parser: async (args, sendLine) => {
-                        if(this.LND==null) throw new Error("LND node not ready yet! Monitor the status with the 'status' command");
-                        sendLine("Connecting to remote peer...");
-                        await lncli.addPeer({
-                            lnd: this.LND,
-                            public_key: args.node.pubkey,
-                            socket: args.node.address
-                        });
-                        return "Connection to the lightning peer established! Public key: "+args.node.pubkey;
-                    }
-                }
-            ),
-            createCommand(
-                "openchannel",
-                "Opens up a lightning network payment channel",
-                {
-                    args: {
-                        amount: {
-                            base: true,
-                            description: "Amount of BTC to use inside a lightning",
-                            parser: cmdNumberParser(true, 0)
-                        },
-                        node: {
-                            base: true,
-                            description: "Remote node identification as <pubkey>@<ip address>",
-                            parser: (data: string) => {
-                                if(data==null) throw new Error("Data cannot be null");
-                                const arr = data.split("@");
-                                if(arr.length!==2) throw new Error("Invalid format, should be: <pubkey>@<ip address>");
-                                return {
-                                    pubkey: arr[0],
-                                    address: arr[1]
-                                };
-                            }
-                        },
-                        feeRate: {
-                            base: false,
-                            description: "Fee rate for the opening transaction (sats/vB)",
-                            parser: cmdNumberParser(false, 1, null, true)
-                        }
-                    },
-                    parser: async (args, sendLine) => {
-                        if(this.LND==null) throw new Error("LND node not ready yet! Monitor the status with the 'status' command");
-                        const amtBN = args.amount==null ? null : fromDecimal(args.amount.toFixed(8), 8);
-                        if(amtBN==null) throw new Error("Amount cannot be parsed");
-                        const resp = await lncli.openChannel({
-                            lnd: this.LND,
-                            local_tokens: amtBN.toNumber(),
-                            min_confirmations: 0,
-                            partner_public_key: args.node.pubkey,
-                            partner_socket: args.node.address,
-                            fee_rate: 1000,
-                            base_fee_mtokens: "1000",
-                            chain_fee_tokens_per_vbyte: args.feeRate
-                        });
-                        return "Lightning channel funded, wait for TX confirmations! txId: "+resp.transaction_id;
-                    }
-                }
-            ),
-            createCommand(
-                "closechannel",
-                "Attempts to cooperatively close a lightning network channel",
-                {
-                    args: {
-                        channelId: {
-                            base: true,
-                            description: "Channel ID to close cooperatively",
-                            parser: cmdStringParser()
-                        },
-                        feeRate: {
-                            base: false,
-                            description: "Fee rate for the opening transaction (sats/vB)",
-                            parser: cmdNumberParser(false, 1, null, true)
-                        }
-                    },
-                    parser: async (args, sendLine) => {
-                        if(this.LND==null) throw new Error("LND node not ready yet! Monitor the status with the 'status' command");
-                        const resp = await lncli.closeChannel({
-                            lnd: this.LND,
-                            is_force_close: false,
-                            id: args.channelId,
-                            tokens_per_vbyte: args.feeRate
-                        });
-                        return "Lightning channel closed, txId: "+resp.transaction_id;
-                    }
-                }
-            ),
-            createCommand(
-                "forceclosechannel",
-                "Force closes a lightning network channel",
-                {
-                    args: {
-                        channelId: {
-                            base: true,
-                            description: "Channel ID to force close",
-                            parser: cmdStringParser()
-                        },
-                        feeRate: {
-                            base: false,
-                            description: "Fee rate for the opening transaction (sats/vB)",
-                            parser: cmdNumberParser(false, 1, null, true)
-                        }
-                    },
-                    parser: async (args, sendLine) => {
-                        if(this.LND==null) throw new Error("LND node not ready yet! Monitor the status with the 'status' command");
-                        const resp = await lncli.closeChannel({
-                            lnd: this.LND,
-                            is_force_close: true,
-                            id: args.channelId,
-                            tokens_per_vbyte: args.feeRate
-                        });
-                        return "Lightning channel closed, txId: "+resp.transaction_id;
-                    }
-                }
-            ),
-            createCommand(
-                "listchannels",
-                "Lists existing lightning channels",
-                {
-                    args: {},
-                    parser: async (args, sendLine) => {
-                        if(this.LND==null) throw new Error("LND node not ready yet! Monitor the status with the 'status' command");
-                        const {channels} = await lncli.getChannels({
-                            lnd: this.LND
-                        });
-                        const reply: string[] = [];
-                        reply.push("Opened channels:");
-                        for(let channel of channels) {
-                            reply.push(" - "+channel.id);
-                            reply.push("    Peer: "+channel.partner_public_key);
-                            reply.push("    State: "+(channel.is_closing ? "closing" : channel.is_opening ? "opening" : channel.is_active ? "active" : "inactive"));
-                            reply.push("    Balance: "+toDecimal(new BN(channel.local_balance), 8)+"/"+toDecimal(new BN(channel.capacity), 8)+" ("+(channel.local_balance/channel.capacity*100).toFixed(2)+"%)");
-                            reply.push("    Unsettled balance: "+toDecimal(new BN(channel.unsettled_balance), 8));
-                        }
-                        const {pending_channels} = await lncli.getPendingChannels({
-                            lnd: this.LND
-                        });
-                        if(pending_channels.length>0) {
-                            reply.push("Pending channels:");
-                            for(let channel of pending_channels) {
-                                reply.push(" - "+channel.transaction_id+":"+channel.transaction_vout);
-                                reply.push("    Peer: "+channel.partner_public_key);
-                                reply.push("    State: "+(channel.is_closing ? "closing" : channel.is_opening ? "opening" : channel.is_active ? "active" : "inactive"));
-                                reply.push("    Balance: "+toDecimal(new BN(channel.local_balance), 8)+"/"+toDecimal(new BN(channel.capacity), 8)+" ("+(channel.local_balance/channel.capacity*100).toFixed(2)+"%)");
-                                if(channel.is_opening) reply.push("    Funding txId: "+channel.transaction_id);
-                                if(channel.is_closing) {
-                                    reply.push("    Is timelocked: "+channel.is_timelocked);
-                                    if(channel.is_timelocked) reply.push("    Blocks till claimable: "+channel.timelock_blocks);
-                                    reply.push("    Close txId: "+channel.close_transaction_id);
-                                }
-                            }
-                        }
                         return reply.join("\n");
                     }
                 }
@@ -448,8 +229,8 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                     args: {
                         asset: {
                             base: true,
-                            description: "Asset to transfer: "+tokenTickers.concat(["BTC"]).join(", "),
-                            parser: cmdEnumParser<string>(tokenTickers.concat(["BTC"]))
+                            description: "Asset to transfer: "+tokenTickers.concat(this.bitcoinWallet!=null ? ["BTC"] : []).join(", "),
+                            parser: cmdEnumParser<string>(tokenTickers.concat(this.bitcoinWallet!=null ? ["BTC"] : []))
                         },
                         address: {
                             base: true,
@@ -469,18 +250,13 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                     },
                     parser: async (args, sendLine) => {
                         if(args.asset==="BTC") {
-                            if(this.LND==null) throw new Error("LND node not ready yet! Monitor the status with the 'status' command");
+                            if(!this.bitcoinWallet.isReady()) throw new Error("Bitcoin wallet not ready yet! Monitor the status with the 'status' command");
                             const amtBN = fromDecimal(args.amount.toFixed(8), 8);
 
-                            const resp = await lncli.sendToChainAddress({
-                                lnd: this.LND,
-                                tokens: amtBN.toNumber(),
-                                address: args.address,
-                                utxo_confirmations: 0,
-                                fee_tokens_per_vbyte: args.feeRate
-                            });
+                            const res = await this.bitcoinWallet.getSignedTransaction(args.address, amtBN.toNumber(), args.feeRate);
+                            await this.bitcoinWallet.sendRawTransaction(res.raw);
 
-                            return "Transaction sent, txId: "+resp.id;
+                            return "Transaction sent, txId: "+res.txId;
                         }
 
                         const {chainId, ticker} = this.fromReadableToken(args.asset);
@@ -495,53 +271,6 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             return Promise.resolve();
                         });
                         return "Transfer transaction confirmed!";
-                    }
-                }
-            ),
-            createCommand(
-                "transferlightning",
-                "Transfer lightning wallet balance, pay lightning network invoice",
-                {
-                    args: {
-                        invoice: {
-                            base: true,
-                            description: "Lightning network invoice to pay (must specify an amount!)",
-                            parser: cmdStringParser()
-                        }
-                    },
-                    parser: async (args, sendLine) => {
-                        if(this.LND==null) throw new Error("LND node not ready yet! Monitor the status with the 'status' command");
-                        sendLine("Sending lightning tx, waiting for confirmation...");
-                        const resp = await lncli.pay({
-                            lnd: this.LND,
-                            request: args.invoice
-                        });
-                        if(resp.is_confirmed) {
-                            return "Lightning transaction confirmed! Preimage: "+resp.secret;
-                        }
-                        return "Lightning transaction is taking longer than expected, will be handled in the background!";
-                    }
-                }
-            ),
-            createCommand(
-                "receivelightning",
-                "Creates a lightning network invoice",
-                {
-                    args: {
-                        amount: {
-                            base: true,
-                            description: "Amount of BTC to receive over lightning",
-                            parser: cmdNumberParser(true, 0, null, true)
-                        }
-                    },
-                    parser: async (args, sendLine) => {
-                        if(this.LND==null) throw new Error("LND node not ready yet! Monitor the status with the 'status' command");
-                        const amtBN = args.amount==null ? null : fromDecimal(args.amount.toFixed(8), 8);
-                        const resp = await lncli.createInvoice({
-                            lnd: this.LND,
-                            mtokens: amtBN==null ? undefined : amtBN.mul(new BN(1000)).toString(10)
-                        });
-                        return "Lightning network invoice: "+resp.request;
                     }
                 }
             ),
@@ -782,7 +511,71 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                     }
                 }
             )
-        ], IntermediaryConfig.CLI.ADDRESS, IntermediaryConfig.CLI.PORT, "Welcome to atomiq intermediary (LP node) CLI!");
+        ];
+
+        if(this.bitcoinWallet!=null) {
+            this.bitcoinWallet.getCommands().forEach(cmd => commands.push(cmd));
+        }
+
+        if(this.lightningWallet!=null) {
+            this.lightningWallet.getCommands().forEach(cmd => commands.push(cmd));
+            commands.push(
+                createCommand(
+                    "transferlightning",
+                    "Transfer lightning wallet balance, pay lightning network invoice",
+                    {
+                        args: {
+                            invoice: {
+                                base: true,
+                                description: "Lightning network invoice to pay (must specify an amount!)",
+                                parser: cmdStringParser()
+                            }
+                        },
+                        parser: async (args, sendLine) => {
+                            if(!this.lightningWallet.isReady()) throw new Error("LND node not ready yet! Monitor the status with the 'status' command");
+                            sendLine("Sending lightning tx, waiting for confirmation...");
+                            await this.lightningWallet.pay({
+                                request: args.invoice,
+                            });
+                            const parsedInvoice = await this.lightningWallet.parsePaymentRequest(args.invoice);
+                            const resp = await this.lightningWallet.waitForPayment(parsedInvoice.id);
+                            if(resp.status==="confirmed") {
+                                return "Lightning transaction confirmed! Preimage: "+resp.secret;
+                            }
+                            if(resp.status==="failed") {
+                                return "Lightning failed! No bitcoin was send";
+                            }
+                            return "Lightning transaction is taking longer than expected, will be handled in the background!";
+                        }
+                    }
+                )
+            );
+            commands.push(
+                createCommand(
+                    "receivelightning",
+                    "Creates a lightning network invoice",
+                    {
+                        args: {
+                            amount: {
+                                base: true,
+                                description: "Amount of BTC to receive over lightning",
+                                parser: cmdNumberParser(true, 0, null, true)
+                            }
+                        },
+                        parser: async (args, sendLine) => {
+                            if(!this.lightningWallet.isReady()) throw new Error("LND node not ready yet! Monitor the status with the 'status' command");
+                            const amtBN = args.amount==null ? null : fromDecimal(args.amount.toFixed(8), 8);
+                            const resp = await this.lightningWallet.createInvoice({
+                                mtokens: amtBN==null ? undefined : amtBN.mul(new BN(1000))
+                            });
+                            return "Lightning network invoice: "+resp.request;
+                        }
+                    }
+                )
+            );
+        }
+
+        this.cmdHandler = new CommandHandler(commands, IntermediaryConfig.CLI.ADDRESS, IntermediaryConfig.CLI.PORT, "Welcome to atomiq intermediary (LP node) CLI!");
     }
 
     async init() {

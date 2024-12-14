@@ -7,7 +7,7 @@ import {
     parseConfig, percentageToPpmParser,
     stringParser,
     dictionaryParser
-} from "crosslightning-server-base";
+} from "@atomiqlabs/server-base";
 import * as fs from "fs";
 import {parse} from "yaml";
 import {RegisteredChains} from "./chains/ChainInitializer";
@@ -70,7 +70,7 @@ const IntermediaryConfigTemplate = {
         MIN: decimalToBNParser(8, 0),
         MAX: decimalToBNParser(8, 0),
 
-        NETWORK_FEE_ADD_PERCENTAGE: percentageToPpmParser(0),
+        NETWORK_FEE_ADD_PERCENTAGE: numberParser(true, 0, null),
 
         ADD_NETWORK_FEE: numberParser(true, 0, null, true),
         MULTIPLY_NETWORK_FEE: numberParser(true, 0, null, true),

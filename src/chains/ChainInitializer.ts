@@ -1,6 +1,6 @@
-import {BitcoinRpc, ChainType, SwapData} from "crosslightning-base";
-import {ChainData} from "crosslightning-intermediary";
-import {ConfigParser, ConfigTemplate, ParsedConfig, Command} from "crosslightning-server-base";
+import {BitcoinRpc, ChainType, SwapData} from "@atomiqlabs/base";
+import {ChainData} from "@atomiqlabs/lp-lib";
+import {ConfigParser, ConfigTemplate, ParsedConfig, Command} from "@atomiqlabs/server-base";
 import {SolanaChainInitializer} from "./solana/SolanaChainInitializer";
 
 export type ChainInitializer<T extends ChainType, C, V extends ConfigTemplate<C>> = {

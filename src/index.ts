@@ -3,12 +3,23 @@ dotenv.config();
 
 import * as fs from "fs/promises";
 import {testnet} from "bitcoinjs-lib/src/networks";
-import {BinanceSwapPrice, ChainData, MultichainData} from "crosslightning-intermediary";
-import {BitcoindRpc} from "btcrelay-bitcoind";
+import {
+    BinanceSwapPrice,
+    ChainData, IBitcoinWallet, ILightningWallet,
+    MultichainData,
+} from "@atomiqlabs/lp-lib";
+import {
+    LNDBitcoinWallet,
+    LNDClient,
+    LNDLightningWallet,
+    OneDollarFeeEstimator
+} from "@atomiqlabs/wallet-lnd";
+import {BitcoindRpc} from "@atomiqlabs/btc-bitcoind";
 import {IntermediaryConfig} from "./IntermediaryConfig";
 import {IntermediaryRunnerWrapper} from "./runner/IntermediaryRunnerWrapper";
 import {ChainInitializer, RegisteredChains} from "./chains/ChainInitializer";
-import {Command} from "crosslightning-server-base";
+import {Command} from "@atomiqlabs/server-base";
+import {BITCOIN_NETWORK} from "./constants/Constants";
 
 const bitcoin_chainparams = { ...testnet };
 bitcoin_chainparams.bip32 = {
@@ -55,15 +66,42 @@ async function main() {
     }
     const prices = new BinanceSwapPrice(null, coinMap);
 
-    const bitcoinRpc = new BitcoindRpc(
-        IntermediaryConfig.BITCOIND.PROTOCOL,
-        IntermediaryConfig.BITCOIND.RPC_USERNAME,
-        IntermediaryConfig.BITCOIND.RPC_PASSWORD,
-        IntermediaryConfig.BITCOIND.HOST,
-        IntermediaryConfig.BITCOIND.PORT
-    );
+    let bitcoinRpc: BitcoindRpc;
+    let bitcoinWallet: IBitcoinWallet;
+    let lightningWallet: ILightningWallet;
+    let lndClient: LNDClient;
+    if(IntermediaryConfig.ONCHAIN_TRUSTED!=null || IntermediaryConfig.ONCHAIN!=null) {
+        bitcoinRpc = new BitcoindRpc(
+            IntermediaryConfig.BITCOIND.PROTOCOL,
+            IntermediaryConfig.BITCOIND.RPC_USERNAME,
+            IntermediaryConfig.BITCOIND.RPC_PASSWORD,
+            IntermediaryConfig.BITCOIND.HOST,
+            IntermediaryConfig.BITCOIND.PORT
+        );
 
-    console.log("[Main]: Running in bitcoin "+IntermediaryConfig.BITCOIND.NETWORK+" mode!");
+        console.log("[Main]: Running in bitcoin "+IntermediaryConfig.BITCOIND.NETWORK+" mode!");
+
+        const btcFeeEstimator = new OneDollarFeeEstimator(
+            IntermediaryConfig.BITCOIND.HOST,
+            IntermediaryConfig.BITCOIND.PORT,
+            IntermediaryConfig.BITCOIND.RPC_USERNAME,
+            IntermediaryConfig.BITCOIND.RPC_PASSWORD,
+            IntermediaryConfig.ONCHAIN?.ADD_NETWORK_FEE,
+            IntermediaryConfig.ONCHAIN?.MULTIPLY_NETWORK_FEE
+        );
+        lndClient = new LNDClient(IntermediaryConfig.LND);
+        const directory = process.env.STORAGE_DIR;
+        bitcoinWallet = new LNDBitcoinWallet(lndClient, {
+            network: BITCOIN_NETWORK,
+            feeEstimator: btcFeeEstimator,
+            storageDirectory: directory+"/lndaddresspool"
+        });
+    }
+    if(IntermediaryConfig.LN!=null || IntermediaryConfig.LN_TRUSTED!=null) {
+        if(lndClient==null) lndClient = new LNDClient(IntermediaryConfig.LND);
+        lightningWallet = new LNDLightningWallet(lndClient);
+    }
+
     console.log("[Main]: Using RPC: "+IntermediaryConfig.SOLANA.RPC_URL+"!");
 
     //Create multichain data object
@@ -102,7 +140,15 @@ async function main() {
         }
     }
 
-    const runner = new IntermediaryRunnerWrapper(directory, multiChainData, IntermediaryConfig.ASSETS, prices, bitcoinRpc);
+    const runner = new IntermediaryRunnerWrapper(
+        directory,
+        multiChainData,
+        IntermediaryConfig.ASSETS,
+        prices,
+        bitcoinRpc,
+        bitcoinWallet,
+        lightningWallet
+    );
     for(let chainId in chains) {
         if(chains[chainId].commands!=null) chains[chainId].commands.forEach(cmd => runner.cmdHandler.registerCommand(cmd));
     }

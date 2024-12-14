@@ -1,6 +1,6 @@
 import {exec} from "child_process";
-import {SwapData} from "crosslightning-base";
-import {IPlugin} from "crosslightning-intermediary";
+import {SwapData} from "@atomiqlabs/base";
+import {IPlugin} from "@atomiqlabs/lp-lib";
 import {IntermediaryConfig} from "./IntermediaryConfig";
 
 function execPromise(cmd: string): Promise<string> {

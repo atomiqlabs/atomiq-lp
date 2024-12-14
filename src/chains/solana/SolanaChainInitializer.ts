@@ -5,7 +5,7 @@ import {
     SolanaSigner,
     SolanaSwapProgram,
     StoredDataAccount
-} from "crosslightning-solana";
+} from "@atomiqlabs/chain-solana";
 import {
     bnParser,
     createCommand,
@@ -14,11 +14,11 @@ import {
     percentageToPpmParser,
     stringParser,
     ConfigParser
-} from "crosslightning-server-base";
+} from "@atomiqlabs/server-base";
 import * as BN from "bn.js";
-import {StorageManager} from "crosslightning-intermediary";
+import {StorageManager} from "@atomiqlabs/lp-lib";
 import {getSolanaSigner} from "./signer/AnchorSigner";
-import {SolanaChainEvents} from "crosslightning-solana/dist/solana/events/SolanaChainEvents";
+import {SolanaChainEvents} from "@atomiqlabs/chain-solana/dist/solana/events/SolanaChainEvents";
 import {PublicKey} from "@solana/web3.js";
 
 export const publicKeyParser: (optional?: boolean) => ConfigParser<PublicKey> = (optional?: boolean) => (data: any) => {
