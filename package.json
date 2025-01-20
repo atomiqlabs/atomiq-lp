@@ -23,7 +23,7 @@
   "dependencies": {
     "@atomiqlabs/base": "7.2.2",
     "@atomiqlabs/btc-bitcoind": "5.2.3",
-    "@atomiqlabs/chain-solana": "7.3.4",
+    "@atomiqlabs/chain-solana": "7.3.5",
     "@atomiqlabs/lp-lib": "11.0.0",
     "@atomiqlabs/server-base": "1.0.5",
     "@atomiqlabs/wallet-lnd": "1.0.1",
