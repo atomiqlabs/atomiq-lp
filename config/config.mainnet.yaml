@@ -2,9 +2,10 @@
 SOLANA:
   RPC_URL: "https://api.mainnet-beta.solana.com"
   MAX_FEE_MICRO_LAMPORTS: 250000
-  SECURITY_DEPOSIT_APY: 20
+  SECURITY_DEPOSIT_APY: 80
+  HELIUS_FEE_LEVEL: "veryHigh"
 
-#  STATIC_TIP: 100000
+  STATIC_TIP: 100000
 #  JITO:
 #    PUBKEY: "DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL"
 #    ENDPOINT: "https://frankfurt.mainnet.block-engine.jito.wtf/api/v1/transactions"

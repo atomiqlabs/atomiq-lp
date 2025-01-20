@@ -2,7 +2,8 @@
 SOLANA:
   RPC_URL: "https://api.devnet.solana.com"
   MAX_FEE_MICRO_LAMPORTS: 250000
-  SECURITY_DEPOSIT_APY: 20
+  SECURITY_DEPOSIT_APY: 80
+  HELIUS_FEE_LEVEL: "veryHigh"
 
 #Bitcoin RPC
 BITCOIND:

@@ -13,7 +13,7 @@ import {
     objectParser,
     percentageToPpmParser,
     stringParser,
-    ConfigParser
+    ConfigParser, enumParser
 } from "@atomiqlabs/server-base";
 import * as BN from "bn.js";
 import {StorageManager} from "@atomiqlabs/lp-lib";
@@ -47,7 +47,8 @@ const template = {
         ENDPOINT: stringParser(),
     }, null, true),
 
-    STATIC_TIP: bnParser(new BN(0), null, true)
+    STATIC_TIP: bnParser(new BN(0), null, true),
+    HELIUS_FEE_LEVEL: enumParser(["min", "low", "medium", "high", "veryHigh", "unsafeMax"], true)
 };
 
 export const SolanaChainInitializer: ChainInitializer<SolanaChainType, any, typeof template> = {
@@ -68,6 +69,7 @@ export const SolanaChainInitializer: ChainInitializer<SolanaChainType, any, type
                 8,
                 100,
                 "auto",
+                configuration.HELIUS_FEE_LEVEL ?? "veryHigh",
                 configuration.STATIC_TIP!=null ? () => configuration.STATIC_TIP : null,
                 configuration.JITO!=null ? {
                     address: configuration.JITO.PUBKEY.toString(),
