@@ -23,10 +23,10 @@
   "dependencies": {
     "@atomiqlabs/base": "7.2.2",
     "@atomiqlabs/btc-bitcoind": "5.2.3",
-    "@atomiqlabs/chain-solana": "7.3.5",
+    "@atomiqlabs/chain-solana": "7.3.7",
     "@atomiqlabs/lp-lib": "11.0.1",
     "@atomiqlabs/server-base": "1.0.5",
-    "@atomiqlabs/wallet-lnd": "1.0.1",
+    "@atomiqlabs/wallet-lnd": "1.0.3",
     "acme-client": "5.3.0",
     "bip32": "4.0.0",
     "bip39": "3.1.0",
