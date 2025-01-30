@@ -94,6 +94,8 @@ const IntermediaryConfigTemplate = {
         SWAP_EXPIRY_SECONDS: numberParser(false, 0, 72*3600, true)
     }, null, true),
 
+    PRICE_SOURCE: enumParser(["binance", "okx"], true),
+
     ASSETS: dictionaryParser(
         objectParser({
             chains: dictionaryParserWithKeys(

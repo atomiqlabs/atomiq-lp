@@ -5,8 +5,8 @@ import * as fs from "fs/promises";
 import {testnet} from "bitcoinjs-lib/src/networks";
 import {
     BinanceSwapPrice,
-    ChainData, IBitcoinWallet, ILightningWallet,
-    MultichainData,
+    ChainData, IBitcoinWallet, ILightningWallet, ISwapPrice,
+    MultichainData, OKXSwapPrice,
 } from "@atomiqlabs/lp-lib";
 import {
     LNDBitcoinWallet,
@@ -64,7 +64,16 @@ async function main() {
             allowedTokens[chain].push(assetData.chains[chain].address);
         }
     }
-    const prices = new BinanceSwapPrice(null, coinMap);
+
+    let prices: ISwapPrice<any>;
+    switch(IntermediaryConfig.PRICE_SOURCE ?? "binance") {
+        case "binance":
+            prices = new BinanceSwapPrice(null, coinMap);
+            break;
+        case "okx":
+            prices = new OKXSwapPrice(null, coinMap);
+            break;
+    }
 
     let bitcoinRpc: BitcoindRpc;
     let bitcoinWallet: IBitcoinWallet;
