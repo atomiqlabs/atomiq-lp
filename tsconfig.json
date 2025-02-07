@@ -8,7 +8,8 @@
     "allowSyntheticDefaultImports": true,
     "types": [
       "node"
-    ]
+    ],
+    "skipLibCheck": true
   },
   "include": [
     "src/**/*"

@@ -1,0 +1,86 @@
+#Solana RPC
+SOLANA:
+  RPC_URL: "https://api.devnet.solana.com"
+  MAX_FEE_MICRO_LAMPORTS: 250000
+  SECURITY_DEPOSIT_APY: 80
+  HELIUS_FEE_LEVEL: "veryHigh"
+
+#Bitcoin RPC
+BITCOIND:
+  PROTOCOL: "http"
+  PORT: 18332
+  HOST: "127.0.0.1"
+  RPC_USERNAME: "user"
+  RPC_PASSWORD: "password"
+  NETWORK: "testnet"
+
+#LND RPC
+LND:
+  CERT_FILE: "~/.lnd/tls.cert"
+  MACAROON_FILE: "~/.lnd/data/chain/bitcoin/testnet/admin.macaroon"
+  HOST: "127.0.0.1"
+  PORT: 20009
+
+#LN setup
+LN:
+  BASE_FEE: 0.00000010
+  FEE_PERCENTAGE: 0.3
+  MIN: 0.00001000
+  MAX: 0.01000000
+
+  ALLOW_NON_PROBABLE_SWAPS: false
+  ALLOW_LN_SHORT_EXPIRY: false
+
+#On-chain setup
+ONCHAIN:
+  BASE_FEE: 0.00000150
+  FEE_PERCENTAGE: 0.3
+  MIN: 0.00010000
+  MAX: 0.05000000
+
+  NETWORK_FEE_ADD_PERCENTAGE: 25
+
+  ADD_NETWORK_FEE: 5
+
+ASSETS:
+  WBTC:
+    chains:
+      SOLANA:
+        address: "4Jar76rqMxBfLDLa1syMd7i4R2YhGSkz2EYiAFyNVxja"
+        decimals: 8
+    pricing: "WBTCBTC"
+  USDC:
+    chains:
+      SOLANA:
+        address: "6jrUSQHX8MTJbtWpdbx65TAwUv1rLyCF6fVjr9yELS75"
+        decimals: 6
+    pricing: "!BTCUSDC"
+  USDT:
+    chains:
+      SOLANA:
+        address: "Ar5yfeSyDNDHyq1GvtcrDKjNcoVTQiv7JaVvuMDbGNDT"
+        decimals: 6
+    pricing: "!BTCUSDT"
+  SOL:
+    chains:
+      SOLANA:
+        address: "So11111111111111111111111111111111111111112"
+        decimals: 9
+    pricing: "SOLBTC"
+
+CLI:
+  ADDRESS: "127.0.0.1"
+  PORT: 40121
+
+REST:
+  ADDRESS: "0.0.0.0"
+  PORT: 4001
+
+#SSL:
+#  CERT_FILE: "./server.cert"
+#  KEY_FILE: "./server.key"
+
+#SSL_AUTO:
+#  IP_ADDRESS_FILE: "./address.txt"
+#  HTTP_LISTEN_PORT: 80
+#  DNS_PROXY: "nip.io"

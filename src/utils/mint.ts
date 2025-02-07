@@ -1,29 +1,22 @@
 import * as dotenv from "dotenv";
 dotenv.config();
 
-import {USDC_ADDRESS, USDT_ADDRESS, WBTC_ADDRESS} from "../constants/Constants";
 import {getOrCreateAssociatedTokenAccount, mintTo} from "@solana/spl-token";
-import AnchorSigner from "../chains/solana/signer/AnchorSigner";
+import {getSolanaSigner} from "../chains/solana/signer/AnchorSigner";
 import {PublicKey} from "@solana/web3.js";
+import {IntermediaryConfig} from "../IntermediaryConfig";
+
+const AnchorSigner = getSolanaSigner(IntermediaryConfig.SOLANA);
 
 async function mint(amount: number, acc: PublicKey, token: string): Promise<boolean> {
-    let useToken;
-    switch (token) {
-        case "WBTC":
-            useToken = WBTC_ADDRESS;
-            break;
-        case "USDC":
-            useToken = USDC_ADDRESS;
-            break;
-        case "USDT":
-            useToken = USDT_ADDRESS;
-            break;
-        default:
-            return false;
-    }
-    const ata = await getOrCreateAssociatedTokenAccount(AnchorSigner.connection, AnchorSigner.signer, useToken, acc);
+    let useToken = IntermediaryConfig.ASSETS[token];
+    if(useToken==null) return false;
 
-    const signature = await mintTo(AnchorSigner.connection, AnchorSigner.signer, useToken, ata.address, AnchorSigner.signer, amount);
+    const address = new PublicKey(useToken.chains["SOLANA"].address);
+
+    const ata = await getOrCreateAssociatedTokenAccount(AnchorSigner.connection, AnchorSigner.signer, address, acc);
+
+    const signature = await mintTo(AnchorSigner.connection, AnchorSigner.signer, address, ata.address, AnchorSigner.signer, amount);
 
     console.log("Mint signature: ", signature);
 
