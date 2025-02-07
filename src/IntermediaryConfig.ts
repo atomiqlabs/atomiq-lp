@@ -6,7 +6,7 @@ import {
     objectParser,
     parseConfig, percentageToPpmParser,
     stringParser,
-    dictionaryParser
+    dictionaryParser, arrayParser
 } from "@atomiqlabs/server-base";
 import * as fs from "fs";
 import {parse} from "yaml";
@@ -61,7 +61,8 @@ const IntermediaryConfigTemplate = {
         ALLOW_NON_PROBABLE_SWAPS: booleanParser(),
         ALLOW_LN_SHORT_EXPIRY: booleanParser(),
 
-        INVOICE_EXPIRY_SECONDS: numberParser(false, 0, 3600, true)
+        INVOICE_EXPIRY_SECONDS: numberParser(false, 0, 3600, true),
+        EXCLUDE_ASSETS: arrayParser(stringParser(), true)
     }, null, true),
 
     ONCHAIN: objectParser({
@@ -74,6 +75,7 @@ const IntermediaryConfigTemplate = {
 
         ADD_NETWORK_FEE: numberParser(true, 0, null, true),
         MULTIPLY_NETWORK_FEE: numberParser(true, 0, null, true),
+        EXCLUDE_ASSETS: arrayParser(stringParser(), true)
     }, null, true),
 
     LN_TRUSTED: objectParser({

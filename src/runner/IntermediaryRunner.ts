@@ -46,6 +46,22 @@ export enum IntermediaryInitState {
     READY="ready"
 }
 
+function removeAllowedAssets(handler: SwapHandler, assets: string[]) {
+    if(assets==null) return;
+    assets.forEach(val => {
+        const arr = val.split("-");
+        if(arr.length!=2) return;
+        const [chain, asset] = arr;
+        const assetData = IntermediaryConfig.ASSETS[asset];
+        if(assetData==null) return;
+        const address = assetData.chains[chain]?.address;
+        if(address==null) return;
+        const handlerAssetSet = handler.allowedTokens[chain];
+        if(handlerAssetSet==null) return;
+        handlerAssetSet.delete(address);
+    })
+}
+
 export class IntermediaryRunner extends EventEmitter {
 
     readonly directory: string;
@@ -158,118 +174,118 @@ export class IntermediaryRunner extends EventEmitter {
     registerSwapHandlers(): void {
 
         if(IntermediaryConfig.ONCHAIN!=null) {
-            this.swapHandlers.push(
-                new ToBtcAbs(
-                    new IntermediaryStorageManager(this.directory + "/tobtc"),
-                    "/tobtc",
-                    this.multichainData,
-                    this.bitcoinWallet,
-                    this.prices,
-                    this.bitcoinRpc,
-                    {
-                        authorizationTimeout: AUTHORIZATION_TIMEOUT,
-                        bitcoinBlocktime: BITCOIN_BLOCKTIME,
-                        gracePeriod: GRACE_PERIOD,
-                        baseFee: IntermediaryConfig.ONCHAIN.BASE_FEE,
-                        feePPM: IntermediaryConfig.ONCHAIN.FEE_PERCENTAGE,
-                        max: IntermediaryConfig.ONCHAIN.MAX,
-                        min: IntermediaryConfig.ONCHAIN.MIN,
-                        safetyFactor: SAFETY_FACTOR,
-                        sendSafetyFactor: CHAIN_SEND_SAFETY_FACTOR,
+            const tobtc = new ToBtcAbs(
+                new IntermediaryStorageManager(this.directory + "/tobtc"),
+                "/tobtc",
+                this.multichainData,
+                this.bitcoinWallet,
+                this.prices,
+                this.bitcoinRpc,
+                {
+                    authorizationTimeout: AUTHORIZATION_TIMEOUT,
+                    bitcoinBlocktime: BITCOIN_BLOCKTIME,
+                    gracePeriod: GRACE_PERIOD,
+                    baseFee: IntermediaryConfig.ONCHAIN.BASE_FEE,
+                    feePPM: IntermediaryConfig.ONCHAIN.FEE_PERCENTAGE,
+                    max: IntermediaryConfig.ONCHAIN.MAX,
+                    min: IntermediaryConfig.ONCHAIN.MIN,
+                    safetyFactor: SAFETY_FACTOR,
+                    sendSafetyFactor: CHAIN_SEND_SAFETY_FACTOR,
 
-                        minChainCltv: new BN(10),
+                    minChainCltv: new BN(10),
 
-                        networkFeeMultiplier: 1+(IntermediaryConfig.ONCHAIN.NETWORK_FEE_ADD_PERCENTAGE/100),
-                        minConfirmations: 1,
-                        maxConfirmations: 6,
-                        maxConfTarget: 12,
-                        minConfTarget: 1,
+                    networkFeeMultiplier: 1+(IntermediaryConfig.ONCHAIN.NETWORK_FEE_ADD_PERCENTAGE/100),
+                    minConfirmations: 1,
+                    maxConfirmations: 6,
+                    maxConfTarget: 12,
+                    minConfTarget: 1,
 
-                        txCheckInterval: 10 * 1000,
-                        swapCheckInterval: 5 * 60 * 1000
-                    }
-                )
+                    txCheckInterval: 10 * 1000,
+                    swapCheckInterval: 5 * 60 * 1000
+                }
             );
-            this.swapHandlers.push(
-                new FromBtcAbs(
-                    new IntermediaryStorageManager(this.directory + "/frombtc"),
-                    "/frombtc",
-                    this.multichainData,
-                    this.bitcoinWallet,
-                    this.prices,
-                    {
-                        authorizationTimeout: AUTHORIZATION_TIMEOUT,
-                        bitcoinBlocktime: BITCOIN_BLOCKTIME,
-                        baseFee: IntermediaryConfig.ONCHAIN.BASE_FEE,
-                        feePPM: IntermediaryConfig.ONCHAIN.FEE_PERCENTAGE,
-                        max: IntermediaryConfig.ONCHAIN.MAX,
-                        min: IntermediaryConfig.ONCHAIN.MIN,
-                        safetyFactor: SAFETY_FACTOR,
+            removeAllowedAssets(tobtc, IntermediaryConfig.ONCHAIN.EXCLUDE_ASSETS);
+            this.swapHandlers.push(tobtc);
+            const frombtc = new FromBtcAbs(
+                new IntermediaryStorageManager(this.directory + "/frombtc"),
+                "/frombtc",
+                this.multichainData,
+                this.bitcoinWallet,
+                this.prices,
+                {
+                    authorizationTimeout: AUTHORIZATION_TIMEOUT,
+                    bitcoinBlocktime: BITCOIN_BLOCKTIME,
+                    baseFee: IntermediaryConfig.ONCHAIN.BASE_FEE,
+                    feePPM: IntermediaryConfig.ONCHAIN.FEE_PERCENTAGE,
+                    max: IntermediaryConfig.ONCHAIN.MAX,
+                    min: IntermediaryConfig.ONCHAIN.MIN,
+                    safetyFactor: SAFETY_FACTOR,
 
-                        confirmations: 2,
-                        swapCsvDelta: 72,
+                    confirmations: 2,
+                    swapCsvDelta: 72,
 
-                        swapCheckInterval: 5 * 60 * 1000,
-                        securityDepositAPY: IntermediaryConfig.SOLANA.SECURITY_DEPOSIT_APY.toNumber() / 1000000
-                    }
-                )
+                    swapCheckInterval: 5 * 60 * 1000,
+                    securityDepositAPY: IntermediaryConfig.SOLANA.SECURITY_DEPOSIT_APY.toNumber() / 1000000
+                }
             );
+            removeAllowedAssets(frombtc, IntermediaryConfig.ONCHAIN.EXCLUDE_ASSETS);
+            this.swapHandlers.push(frombtc);
         }
 
         if(IntermediaryConfig.LN!=null) {
-            this.swapHandlers.push(
-                new ToBtcLnAbs(
-                    new IntermediaryStorageManager(this.directory+"/tobtcln"),
-                    "/tobtcln",
-                    this.multichainData,
-                    this.lightningWallet,
-                    this.prices,
-                    {
-                        authorizationTimeout: AUTHORIZATION_TIMEOUT,
-                        bitcoinBlocktime: BITCOIN_BLOCKTIME,
-                        gracePeriod: GRACE_PERIOD,
-                        baseFee: IntermediaryConfig.LN.BASE_FEE,
-                        feePPM: IntermediaryConfig.LN.FEE_PERCENTAGE,
-                        max: IntermediaryConfig.LN.MAX,
-                        min: IntermediaryConfig.LN.MIN,
-                        safetyFactor: SAFETY_FACTOR,
+            const tobtcln = new ToBtcLnAbs(
+                new IntermediaryStorageManager(this.directory+"/tobtcln"),
+                "/tobtcln",
+                this.multichainData,
+                this.lightningWallet,
+                this.prices,
+                {
+                    authorizationTimeout: AUTHORIZATION_TIMEOUT,
+                    bitcoinBlocktime: BITCOIN_BLOCKTIME,
+                    gracePeriod: GRACE_PERIOD,
+                    baseFee: IntermediaryConfig.LN.BASE_FEE,
+                    feePPM: IntermediaryConfig.LN.FEE_PERCENTAGE,
+                    max: IntermediaryConfig.LN.MAX,
+                    min: IntermediaryConfig.LN.MIN,
+                    safetyFactor: SAFETY_FACTOR,
 
-                        routingFeeMultiplier: new BN(2),
+                    routingFeeMultiplier: new BN(2),
 
-                        minSendCltv: new BN(10),
+                    minSendCltv: new BN(10),
 
-                        swapCheckInterval: 5*60*1000,
+                    swapCheckInterval: 5*60*1000,
 
-                        allowShortExpiry: IntermediaryConfig.LN.ALLOW_LN_SHORT_EXPIRY,
-                        allowProbeFailedSwaps: IntermediaryConfig.LN.ALLOW_NON_PROBABLE_SWAPS,
-                    }
-                )
+                    allowShortExpiry: IntermediaryConfig.LN.ALLOW_LN_SHORT_EXPIRY,
+                    allowProbeFailedSwaps: IntermediaryConfig.LN.ALLOW_NON_PROBABLE_SWAPS,
+                }
             );
-            this.swapHandlers.push(
-                new FromBtcLnAbs(
-                    new IntermediaryStorageManager(this.directory+"/frombtcln"),
-                    "/frombtcln",
-                    this.multichainData,
-                    this.lightningWallet,
-                    this.prices,
-                    {
-                        authorizationTimeout: AUTHORIZATION_TIMEOUT,
-                        bitcoinBlocktime: BITCOIN_BLOCKTIME,
-                        gracePeriod: GRACE_PERIOD,
-                        baseFee: IntermediaryConfig.LN.BASE_FEE,
-                        feePPM: IntermediaryConfig.LN.FEE_PERCENTAGE,
-                        max: IntermediaryConfig.LN.MAX,
-                        min: IntermediaryConfig.LN.MIN,
-                        safetyFactor: SAFETY_FACTOR,
+            removeAllowedAssets(tobtcln, IntermediaryConfig.LN.EXCLUDE_ASSETS);
+            this.swapHandlers.push(tobtcln);
+            const frombtcln = new FromBtcLnAbs(
+                new IntermediaryStorageManager(this.directory+"/frombtcln"),
+                "/frombtcln",
+                this.multichainData,
+                this.lightningWallet,
+                this.prices,
+                {
+                    authorizationTimeout: AUTHORIZATION_TIMEOUT,
+                    bitcoinBlocktime: BITCOIN_BLOCKTIME,
+                    gracePeriod: GRACE_PERIOD,
+                    baseFee: IntermediaryConfig.LN.BASE_FEE,
+                    feePPM: IntermediaryConfig.LN.FEE_PERCENTAGE,
+                    max: IntermediaryConfig.LN.MAX,
+                    min: IntermediaryConfig.LN.MIN,
+                    safetyFactor: SAFETY_FACTOR,
 
-                        minCltv: new BN(20),
+                    minCltv: new BN(20),
 
-                        swapCheckInterval: 1*60*1000,
-                        securityDepositAPY: IntermediaryConfig.SOLANA.SECURITY_DEPOSIT_APY.toNumber()/1000000,
-                        invoiceTimeoutSeconds: IntermediaryConfig.LN.INVOICE_EXPIRY_SECONDS
-                    }
-                )
+                    swapCheckInterval: 1*60*1000,
+                    securityDepositAPY: IntermediaryConfig.SOLANA.SECURITY_DEPOSIT_APY.toNumber()/1000000,
+                    invoiceTimeoutSeconds: IntermediaryConfig.LN.INVOICE_EXPIRY_SECONDS
+                }
             );
+            removeAllowedAssets(frombtcln, IntermediaryConfig.LN.EXCLUDE_ASSETS);
+            this.swapHandlers.push(frombtcln);
         }
         if(IntermediaryConfig.ONCHAIN_TRUSTED!=null) {
             this.swapHandlers.push(
