@@ -1,4 +1,3 @@
-import {fetch} from "cross-fetch";
 import * as fs from "fs/promises";
 
 export class Registry {
