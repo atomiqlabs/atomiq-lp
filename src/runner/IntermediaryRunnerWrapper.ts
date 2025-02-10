@@ -442,14 +442,16 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                     parser: async (args, sendLine) => {
                         const swapData: string[] = [];
                         for(let swapHandler of this.swapHandlers) {
-                            for(let _swap of await swapHandler.storageManager.query([])) {
+                            for(let {obj: _swap} of await swapHandler.storageManager.query([])) {
                                 const tokenData = this.addressesToTokens[_swap.chainIdentifier][_swap.data.getToken().toString()];
                                 if(_swap.type===SwapHandlerType.TO_BTC) {
                                     const swap = _swap as ToBtcSwapAbs;
                                     if(args.quotes!==1 && swap.state===ToBtcSwapState.SAVED) continue;
                                     const lines = [
                                         toDecimal(swap.data.getAmount(), tokenData.decimals)+" "+tokenData.ticker+" -> "+toDecimal(swap.amount, 8)+" BTC",
-                                        "Payment hash: "+_swap.data.getHash(),
+                                        "Identifier hash: "+_swap.getIdentifierHash(),
+                                        "Escrow hash: "+_swap.getEscrowHash(),
+                                        "Claim hash: "+_swap.getClaimHash(),
                                         "State: "+ToBtcSwapState[swap.state],
                                         "Swap fee: "+toDecimal(swap.swapFee, 8)+" BTC",
                                         "Network fee: "+toDecimal(swap.quotedNetworkFee, 8)+" BTC",
@@ -468,7 +470,9 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                                     const sats = new BN(parsedPR.millisatoshis).div(new BN(1000));
                                     const lines = [
                                         toDecimal(swap.data.getAmount(), tokenData.decimals)+" "+tokenData.ticker+" -> "+toDecimal(sats, 8)+" BTC-LN",
-                                        "Payment hash: "+_swap.data.getHash(),
+                                        "Identifier hash: "+_swap.getIdentifierHash(),
+                                        "Escrow hash: "+_swap.getEscrowHash(),
+                                        "Claim hash: "+_swap.getClaimHash(),
                                         "State: "+ToBtcLnSwapState[swap.state],
                                         "Swap fee: "+toDecimal(swap.swapFee, 8)+" BTC-LN",
                                         "Network fee: "+toDecimal(swap.quotedNetworkFee, 8)+" BTC-LN",
@@ -484,7 +488,9 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                                     if(args.quotes!==1 && swap.state===FromBtcSwapState.CREATED) continue;
                                     const lines = [
                                         toDecimal(swap.amount, 8)+" BTC -> "+toDecimal(swap.data.getAmount(), tokenData.decimals)+" "+tokenData.ticker,
-                                        "Payment hash: "+_swap.data.getHash(),
+                                        "Identifier hash: "+_swap.getIdentifierHash(),
+                                        "Escrow hash: "+_swap.getEscrowHash(),
+                                        "Claim hash: "+_swap.getClaimHash(),
                                         "State: "+FromBtcSwapState[swap.state],
                                         "Swap fee: "+toDecimal(swap.swapFee, 8)+" BTC",
                                         "Receiving address: "+swap.address
@@ -498,7 +504,9 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                                     const sats = new BN(parsedPR.millisatoshis).div(new BN(1000));
                                     const lines = [
                                         toDecimal(sats, 8)+" BTC-LN -> "+toDecimal(swap.data.getAmount(), tokenData.decimals)+" "+tokenData.ticker,
-                                        "Payment hash: "+_swap.data.getHash(),
+                                        "Identifier hash: "+_swap.getIdentifierHash(),
+                                        "Escrow hash: "+_swap.getEscrowHash(),
+                                        "Claim hash: "+_swap.getClaimHash(),
                                         "State: "+FromBtcLnSwapState[swap.state],
                                         "Swap fee: "+toDecimal(swap.swapFee, 8)+" BTC-LN",
                                         "Receiving invoice: "+swap.pr
