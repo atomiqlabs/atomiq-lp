@@ -13,3 +13,4 @@ export const CHAIN_SEND_SAFETY_FACTOR = new BN(process.env.CHAIN_SEND_SAFETY_FAC
 
 //Authorizations
 export const AUTHORIZATION_TIMEOUT = parseInt(process.env.AUTHORIZATION_TIMEOUT);
+export const REFUND_AUTHORIZATION_TIMEOUT = parseInt(process.env.REFUND_AUTHORIZATION_TIMEOUT ?? process.env.AUTHORIZATION_TIMEOUT);

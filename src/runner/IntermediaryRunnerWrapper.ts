@@ -240,7 +240,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                         amount: {
                             base: true,
                             description: "Amount of the currency to send",
-                            parser: cmdNumberParser(true, 0)
+                            parser: cmdStringParser(1)
                         },
                         feeRate: {
                             base: false,
@@ -251,7 +251,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                     parser: async (args, sendLine) => {
                         if(args.asset==="BTC") {
                             if(!this.bitcoinWallet.isReady()) throw new Error("Bitcoin wallet not ready yet! Monitor the status with the 'status' command");
-                            const amtBN = fromDecimal(args.amount.toFixed(8), 8);
+                            const amtBN = fromDecimal(args.amount, 8);
 
                             const res = await this.bitcoinWallet.getSignedTransaction(args.address, amtBN.toNumber(), args.feeRate);
                             await this.bitcoinWallet.sendRawTransaction(res.raw);
@@ -263,7 +263,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
 
                         const {swapContract, signer} = this.multichainData.chains[chainId];
                         const tokenData = this.tokens[ticker].chains[chainId];
-                        const amtBN = fromDecimal(args.amount.toFixed(tokenData.decimals), tokenData.decimals);
+                        const amtBN = fromDecimal(args.amount, tokenData.decimals);
 
                         const txns = await swapContract.txsTransfer(signer.getAddress(), tokenData.address, amtBN, args.address);
                         await swapContract.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
@@ -286,8 +286,8 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                         },
                         amount: {
                             base: true,
-                            description: "Amount of the currency to send",
-                            parser: cmdNumberParser(true, 0)
+                            description: "Amount of the currency to deposit",
+                            parser: cmdStringParser(1)
                         }
                     },
                     parser: async (args, sendLine) => {
@@ -296,7 +296,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                         const {swapContract, signer} = this.multichainData.chains[chainId];
                         const tokenData = this.tokens[ticker].chains[chainId];
 
-                        const amtBN = fromDecimal(args.amount.toFixed(tokenData.decimals), tokenData.decimals);
+                        const amtBN = fromDecimal(args.amount, tokenData.decimals);
 
                         const txns = await swapContract.txsDeposit(signer.getAddress(), tokenData.address, amtBN);
                         await swapContract.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
@@ -314,13 +314,13 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                     args: {
                         asset: {
                             base: true,
-                            description: "Asset to transfer: "+tokenTickers.join(", "),
+                            description: "Asset to withdraw: "+tokenTickers.join(", "),
                             parser: cmdEnumParser<string>(tokenTickers)
                         },
                         amount: {
                             base: true,
-                            description: "Amount of the currency to send",
-                            parser: cmdNumberParser(true, 0)
+                            description: "Amount of the currency to withdraw",
+                            parser: cmdStringParser(1)
                         }
                     },
                     parser: async (args, sendLine) => {
@@ -328,7 +328,8 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
 
                         const {swapContract, signer} = this.multichainData.chains[chainId];
                         const tokenData = this.tokens[ticker].chains[chainId];
-                        const amtBN = fromDecimal(args.amount.toFixed(tokenData.decimals), tokenData.decimals);
+                        console.log(typeof(args.amount), args.amount);
+                        const amtBN = fromDecimal(args.amount, tokenData.decimals);
 
                         const txns = await swapContract.txsWithdraw(signer.getAddress(), tokenData.address, amtBN);
                         await swapContract.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
@@ -364,7 +365,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                                 reply.push("       fails: "+toDecimal(lnData.failVolume, decimals)+" ("+lnData.failCount.toString(10)+" swaps)");
                                 reply.push("       coop closes: "+toDecimal(lnData.coopCloseVolume, decimals)+" ("+lnData.coopCloseCount.toString(10)+" swaps)");
 
-                                const onChainData = reputation[ChainSwapType.CHAIN];
+                                const onChainData = reputation[ChainSwapType.CHAIN_NONCED];
                                 reply.push("   On-chain:");
                                 reply.push("       successes: "+toDecimal(onChainData.successVolume, decimals)+" ("+onChainData.successCount.toString(10)+" swaps)");
                                 reply.push("       fails: "+toDecimal(onChainData.failVolume, decimals)+" ("+onChainData.failCount.toString(10)+" swaps)");

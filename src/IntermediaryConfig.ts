@@ -97,13 +97,15 @@ const IntermediaryConfigTemplate = {
     }, null, true),
 
     PRICE_SOURCE: enumParser(["binance", "okx"], true),
+    SECURITY_DEPOSIT_APY: percentageToPpmParser(0, undefined, true),
 
     ASSETS: dictionaryParser(
         objectParser({
             chains: dictionaryParserWithKeys(
                 objectParser({
                     address: stringParser(),
-                    decimals: numberParser(false, 0)
+                    decimals: numberParser(false, 0),
+                    securityDepositAllowed: booleanParser(true)
                 }, null, true),
                 allowedChains
             ),

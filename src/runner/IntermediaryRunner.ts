@@ -2,7 +2,7 @@ import {getEnabledPlugins} from "../plugins";
 import {
     AUTHORIZATION_TIMEOUT,
     BITCOIN_BLOCKTIME, CHAIN_SEND_SAFETY_FACTOR,
-    GRACE_PERIOD,
+    GRACE_PERIOD, REFUND_AUTHORIZATION_TIMEOUT,
     SAFETY_FACTOR
 } from "../constants/Constants";
 import {IntermediaryConfig} from "../IntermediaryConfig";
@@ -173,7 +173,31 @@ export class IntermediaryRunner extends EventEmitter {
 
     registerSwapHandlers(): void {
 
+        const initAuthorizationTimeouts = {};
+        for(let chain in IntermediaryConfig) {
+            if(IntermediaryConfig[chain]?.AUTHORIZATION_TIMEOUT!=null) {
+                initAuthorizationTimeouts[chain] = IntermediaryConfig[chain].AUTHORIZATION_TIMEOUT;
+            }
+        }
+
+        const globalConfig = {
+            initAuthorizationTimeout: AUTHORIZATION_TIMEOUT,
+            initAuthorizationTimeouts,
+            bitcoinBlocktime: BITCOIN_BLOCKTIME,
+            safetyFactor: SAFETY_FACTOR,
+            swapCheckInterval: 5*60*1000,
+            refundAuthorizationTimeout: REFUND_AUTHORIZATION_TIMEOUT,
+            gracePeriod: GRACE_PERIOD,
+            securityDepositAPY: (IntermediaryConfig.SOLANA.SECURITY_DEPOSIT_APY ?? IntermediaryConfig.SECURITY_DEPOSIT_APY).toNumber()/1000000
+        };
+
         if(IntermediaryConfig.ONCHAIN!=null) {
+            const swapConfig = {
+                baseFee: IntermediaryConfig.ONCHAIN.BASE_FEE,
+                feePPM: IntermediaryConfig.ONCHAIN.FEE_PERCENTAGE,
+                max: IntermediaryConfig.ONCHAIN.MAX,
+                min: IntermediaryConfig.ONCHAIN.MIN
+            };
             const tobtc = new ToBtcAbs(
                 new IntermediaryStorageManager(this.directory + "/tobtc"),
                 "/tobtc",
@@ -182,14 +206,8 @@ export class IntermediaryRunner extends EventEmitter {
                 this.prices,
                 this.bitcoinRpc,
                 {
-                    authorizationTimeout: AUTHORIZATION_TIMEOUT,
-                    bitcoinBlocktime: BITCOIN_BLOCKTIME,
-                    gracePeriod: GRACE_PERIOD,
-                    baseFee: IntermediaryConfig.ONCHAIN.BASE_FEE,
-                    feePPM: IntermediaryConfig.ONCHAIN.FEE_PERCENTAGE,
-                    max: IntermediaryConfig.ONCHAIN.MAX,
-                    min: IntermediaryConfig.ONCHAIN.MIN,
-                    safetyFactor: SAFETY_FACTOR,
+                    ...globalConfig,
+                    ...swapConfig,
                     sendSafetyFactor: CHAIN_SEND_SAFETY_FACTOR,
 
                     minChainCltv: new BN(10),
@@ -200,8 +218,7 @@ export class IntermediaryRunner extends EventEmitter {
                     maxConfTarget: 12,
                     minConfTarget: 1,
 
-                    txCheckInterval: 10 * 1000,
-                    swapCheckInterval: 5 * 60 * 1000
+                    txCheckInterval: 10 * 1000
                 }
             );
             removeAllowedAssets(tobtc, IntermediaryConfig.ONCHAIN.EXCLUDE_ASSETS);
@@ -213,19 +230,11 @@ export class IntermediaryRunner extends EventEmitter {
                 this.bitcoinWallet,
                 this.prices,
                 {
-                    authorizationTimeout: AUTHORIZATION_TIMEOUT,
-                    bitcoinBlocktime: BITCOIN_BLOCKTIME,
-                    baseFee: IntermediaryConfig.ONCHAIN.BASE_FEE,
-                    feePPM: IntermediaryConfig.ONCHAIN.FEE_PERCENTAGE,
-                    max: IntermediaryConfig.ONCHAIN.MAX,
-                    min: IntermediaryConfig.ONCHAIN.MIN,
-                    safetyFactor: SAFETY_FACTOR,
+                    ...globalConfig,
+                    ...swapConfig,
 
                     confirmations: 2,
-                    swapCsvDelta: 72,
-
-                    swapCheckInterval: 5 * 60 * 1000,
-                    securityDepositAPY: IntermediaryConfig.SOLANA.SECURITY_DEPOSIT_APY.toNumber() / 1000000
+                    swapCsvDelta: 72
                 }
             );
             removeAllowedAssets(frombtc, IntermediaryConfig.ONCHAIN.EXCLUDE_ASSETS);
@@ -233,6 +242,12 @@ export class IntermediaryRunner extends EventEmitter {
         }
 
         if(IntermediaryConfig.LN!=null) {
+            const swapConfig = {
+                baseFee: IntermediaryConfig.LN.BASE_FEE,
+                feePPM: IntermediaryConfig.LN.FEE_PERCENTAGE,
+                max: IntermediaryConfig.LN.MAX,
+                min: IntermediaryConfig.LN.MIN,
+            };
             const tobtcln = new ToBtcLnAbs(
                 new IntermediaryStorageManager(this.directory+"/tobtcln"),
                 "/tobtcln",
@@ -240,20 +255,12 @@ export class IntermediaryRunner extends EventEmitter {
                 this.lightningWallet,
                 this.prices,
                 {
-                    authorizationTimeout: AUTHORIZATION_TIMEOUT,
-                    bitcoinBlocktime: BITCOIN_BLOCKTIME,
-                    gracePeriod: GRACE_PERIOD,
-                    baseFee: IntermediaryConfig.LN.BASE_FEE,
-                    feePPM: IntermediaryConfig.LN.FEE_PERCENTAGE,
-                    max: IntermediaryConfig.LN.MAX,
-                    min: IntermediaryConfig.LN.MIN,
-                    safetyFactor: SAFETY_FACTOR,
+                    ...globalConfig,
+                    ...swapConfig,
 
                     routingFeeMultiplier: new BN(2),
 
                     minSendCltv: new BN(10),
-
-                    swapCheckInterval: 5*60*1000,
 
                     allowShortExpiry: IntermediaryConfig.LN.ALLOW_LN_SHORT_EXPIRY,
                     allowProbeFailedSwaps: IntermediaryConfig.LN.ALLOW_NON_PROBABLE_SWAPS,
@@ -268,19 +275,12 @@ export class IntermediaryRunner extends EventEmitter {
                 this.lightningWallet,
                 this.prices,
                 {
-                    authorizationTimeout: AUTHORIZATION_TIMEOUT,
-                    bitcoinBlocktime: BITCOIN_BLOCKTIME,
-                    gracePeriod: GRACE_PERIOD,
-                    baseFee: IntermediaryConfig.LN.BASE_FEE,
-                    feePPM: IntermediaryConfig.LN.FEE_PERCENTAGE,
-                    max: IntermediaryConfig.LN.MAX,
-                    min: IntermediaryConfig.LN.MIN,
-                    safetyFactor: SAFETY_FACTOR,
+                    ...globalConfig,
+                    ...swapConfig,
 
                     minCltv: new BN(20),
 
                     swapCheckInterval: 1*60*1000,
-                    securityDepositAPY: IntermediaryConfig.SOLANA.SECURITY_DEPOSIT_APY.toNumber()/1000000,
                     invoiceTimeoutSeconds: IntermediaryConfig.LN.INVOICE_EXPIRY_SECONDS
                 }
             );
@@ -297,20 +297,15 @@ export class IntermediaryRunner extends EventEmitter {
                     this.prices,
                     this.bitcoinRpc,
                     {
-                        authorizationTimeout: AUTHORIZATION_TIMEOUT,
-                        bitcoinBlocktime: BITCOIN_BLOCKTIME,
+                        ...globalConfig,
                         baseFee: IntermediaryConfig.ONCHAIN_TRUSTED.BASE_FEE,
                         feePPM: IntermediaryConfig.ONCHAIN_TRUSTED.FEE_PERCENTAGE,
                         max: IntermediaryConfig.ONCHAIN_TRUSTED.MAX,
                         min: IntermediaryConfig.ONCHAIN_TRUSTED.MIN,
-                        safetyFactor: SAFETY_FACTOR,
 
                         doubleSpendCheckInterval: 5000,
                         swapAddressExpiry: IntermediaryConfig.ONCHAIN_TRUSTED.SWAP_EXPIRY_SECONDS ?? 3*3600,
-                        recommendFeeMultiplier: 1,
-
-                        swapCheckInterval: 5 * 60 * 1000,
-                        securityDepositAPY: null
+                        recommendFeeMultiplier: 1
                     }
                 )
             );
@@ -324,19 +319,16 @@ export class IntermediaryRunner extends EventEmitter {
                     this.lightningWallet,
                     this.prices,
                     {
-                        authorizationTimeout: AUTHORIZATION_TIMEOUT,
-                        bitcoinBlocktime: BITCOIN_BLOCKTIME,
+                        ...globalConfig,
                         baseFee: IntermediaryConfig.LN_TRUSTED.BASE_FEE,
                         feePPM: IntermediaryConfig.LN_TRUSTED.FEE_PERCENTAGE,
                         max: IntermediaryConfig.LN_TRUSTED.MAX,
                         min: IntermediaryConfig.LN_TRUSTED.MIN,
-                        safetyFactor: SAFETY_FACTOR,
 
                         minCltv: new BN(20),
 
                         swapCheckInterval: 1*60*1000,
-                        invoiceTimeoutSeconds: IntermediaryConfig.LN_TRUSTED.INVOICE_EXPIRY_SECONDS,
-                        securityDepositAPY: null
+                        invoiceTimeoutSeconds: IntermediaryConfig.LN_TRUSTED.INVOICE_EXPIRY_SECONDS
                     }
                 )
             );
@@ -511,7 +503,7 @@ export class IntermediaryRunner extends EventEmitter {
         for(let chainId in this.multichainData.chains) {
             const chainData = this.multichainData.chains[chainId];
             await chainData.swapContract.start();
-            await chainData.swapContract.claimDeposits(chainData.signer);
+            if(chainData.swapContract.claimDeposits!=null) await chainData.swapContract.claimDeposits(chainData.signer);
             await chainData.chainEvents.init();
         }
 

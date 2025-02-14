@@ -40,7 +40,7 @@ const template = {
     MNEMONIC_FILE: stringParser(null, null, true),
     PRIVKEY: stringParser(128, 128, true),
     ADDRESS: publicKeyParser(true),
-    SECURITY_DEPOSIT_APY: percentageToPpmParser(0),
+    SECURITY_DEPOSIT_APY: percentageToPpmParser(0, undefined, true),
 
     JITO: objectParser({
         PUBKEY: publicKeyParser(),
@@ -48,11 +48,13 @@ const template = {
     }, null, true),
 
     STATIC_TIP: bnParser(new BN(0), null, true),
-    HELIUS_FEE_LEVEL: enumParser(["min", "low", "medium", "high", "veryHigh", "unsafeMax"], true)
+    HELIUS_FEE_LEVEL: enumParser(["min", "low", "medium", "high", "veryHigh", "unsafeMax"], true),
+
+    AUTHORIZATION_TIMEOUT: numberParser(false, 10, 3600, true)
 };
 
 export const SolanaChainInitializer: ChainInitializer<SolanaChainType, any, typeof template> = {
-    loadChain: (configuration, bitcoinRpc, allowedTokens) => {
+    loadChain: (configuration, bitcoinRpc) => {
         const directory = process.env.STORAGE_DIR;
 
         const AnchorSigner = getSolanaSigner(configuration);
@@ -84,7 +86,6 @@ export const SolanaChainInitializer: ChainInitializer<SolanaChainType, any, type
             swapContract,
             chainEvents,
             btcRelay,
-            allowedTokens,
             commands: [
                 createCommand(
                     "airdrop",
