@@ -123,8 +123,6 @@ async function main() {
         lightningWallet = new LNDLightningWallet(lndClient);
     }
 
-    console.log("[Main]: Using RPC: "+IntermediaryConfig.SOLANA.RPC_URL+"!");
-
     //Create multichain data object
     const chains: {[chainId: string]: ChainData & {commands?: Command<any>[]}} = {};
     const registeredChains: {[chainId: string]: ChainInitializer<any, any, any>} = RegisteredChains;
