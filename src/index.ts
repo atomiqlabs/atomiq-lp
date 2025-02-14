@@ -127,7 +127,7 @@ async function main() {
     const chains: {[chainId: string]: ChainData & {commands?: Command<any>[]}} = {};
     const registeredChains: {[chainId: string]: ChainInitializer<any, any, any>} = RegisteredChains;
     for(let chainId in registeredChains) {
-        if(registeredChains[chainId]==null) continue;
+        if(IntermediaryConfig[chainId]==null) continue;
         chains[chainId] = {
             ...registeredChains[chainId].loadChain(IntermediaryConfig[chainId], bitcoinRpc),
             allowedTokens: allowedTokens[chainId] ?? [],
