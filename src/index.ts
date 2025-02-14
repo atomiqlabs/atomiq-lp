@@ -136,7 +136,7 @@ async function main() {
     }
     const multiChainData: MultichainData = {
         chains,
-        default: "SOLANA"
+        default: process.env.DEFAULT_CHAIN
     };
 
     //Check token addresses are valid

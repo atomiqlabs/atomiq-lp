@@ -188,7 +188,7 @@ export class IntermediaryRunner extends EventEmitter {
             swapCheckInterval: 5*60*1000,
             refundAuthorizationTimeout: REFUND_AUTHORIZATION_TIMEOUT,
             gracePeriod: GRACE_PERIOD,
-            securityDepositAPY: (IntermediaryConfig.SOLANA?.SECURITY_DEPOSIT_APY ?? IntermediaryConfig.SECURITY_DEPOSIT_APY).toNumber()/1000000
+            securityDepositAPY: (IntermediaryConfig.SECURITY_DEPOSIT_APY ?? IntermediaryConfig.SOLANA.SECURITY_DEPOSIT_APY).toNumber()/1000000
         };
 
         if(IntermediaryConfig.ONCHAIN!=null) {
