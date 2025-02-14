@@ -314,7 +314,7 @@ export class IntermediaryRunner extends EventEmitter {
             this.swapHandlers.push(
                 new FromBtcLnTrusted(
                     new IntermediaryStorageManager(this.directory+"/frombtcln_trusted"),
-                    "/frombtcln_trusted",
+                    "/lnforgas",
                     this.multichainData,
                     this.lightningWallet,
                     this.prices,
