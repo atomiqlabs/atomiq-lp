@@ -112,5 +112,5 @@ export const SolanaChainInitializer: ChainInitializer<SolanaChainType, any, type
     },
     configuration: objectParser(template, (data) => {
         if(data.MNEMONIC_FILE==null && data.PRIVKEY==null) throw new Error("Mnemonic file or explicit private key must be specified!");
-    })
+    }, true)
 };
