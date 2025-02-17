@@ -542,11 +542,12 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                         },
                         parser: async (args, sendLine) => {
                             if(!this.lightningWallet.isReady()) throw new Error("LND node not ready yet! Monitor the status with the 'status' command");
-                            sendLine("Sending lightning tx, waiting for confirmation...");
+                            const parsedInvoice = await this.lightningWallet.parsePaymentRequest(args.invoice);
+                            sendLine("Sending lightning tx "+parsedInvoice.id+"...");
                             await this.lightningWallet.pay({
                                 request: args.invoice,
                             });
-                            const parsedInvoice = await this.lightningWallet.parsePaymentRequest(args.invoice);
+                            sendLine("Waiting for confirmation...");
                             const resp = await this.lightningWallet.waitForPayment(parsedInvoice.id);
                             if(resp.status==="confirmed") {
                                 return "Lightning transaction confirmed! Preimage: "+resp.secret;
