@@ -1,6 +1,6 @@
 import {AnchorProvider, Wallet} from "@coral-xyz/anchor";
 import {Connection, Keypair} from "@solana/web3.js";
-import * as bip39 from "bip39";
+import {mnemonicToSeedSync} from "@scure/bip39";
 import { derivePath } from 'ed25519-hd-key';
 import * as fs from "fs";
 
@@ -22,7 +22,7 @@ export function getSolanaSigner(configuration: {RPC_URL: string, MNEMONIC_FILE?:
     if(mnemonicFile!=null) {
         const mnemonic: string = fs.readFileSync(mnemonicFile).toString();
         try {
-            seed = bip39.mnemonicToSeedSync(mnemonic);
+            seed = Buffer.from(mnemonicToSeedSync(mnemonic));
         } catch (e) {
             throw new Error("Error parsing mnemonic phrase!");
         }

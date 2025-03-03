@@ -6,7 +6,6 @@ import {
     SAFETY_FACTOR
 } from "../constants/Constants";
 import {IntermediaryConfig} from "../IntermediaryConfig";
-import * as BN from "bn.js";
 import * as http2 from "http2";
 import * as fs from "fs/promises";
 import {
@@ -188,7 +187,7 @@ export class IntermediaryRunner extends EventEmitter {
             swapCheckInterval: 5*60*1000,
             refundAuthorizationTimeout: REFUND_AUTHORIZATION_TIMEOUT,
             gracePeriod: GRACE_PERIOD,
-            securityDepositAPY: (IntermediaryConfig.SECURITY_DEPOSIT_APY ?? IntermediaryConfig.SOLANA.SECURITY_DEPOSIT_APY).toNumber()/1000000
+            securityDepositAPY: Number(IntermediaryConfig.SECURITY_DEPOSIT_APY ?? IntermediaryConfig.SOLANA.SECURITY_DEPOSIT_APY)/1000000
         };
 
         if(IntermediaryConfig.ONCHAIN!=null) {
@@ -210,7 +209,7 @@ export class IntermediaryRunner extends EventEmitter {
                     ...swapConfig,
                     sendSafetyFactor: CHAIN_SEND_SAFETY_FACTOR,
 
-                    minChainCltv: new BN(10),
+                    minChainCltv: 10n,
 
                     networkFeeMultiplier: 1+(IntermediaryConfig.ONCHAIN.NETWORK_FEE_ADD_PERCENTAGE/100),
                     minConfirmations: 1,
@@ -258,9 +257,9 @@ export class IntermediaryRunner extends EventEmitter {
                     ...globalConfig,
                     ...swapConfig,
 
-                    routingFeeMultiplier: new BN(2),
+                    routingFeeMultiplier: 2n,
 
-                    minSendCltv: new BN(10),
+                    minSendCltv: 10n,
 
                     allowShortExpiry: IntermediaryConfig.LN.ALLOW_LN_SHORT_EXPIRY,
                     allowProbeFailedSwaps: IntermediaryConfig.LN.ALLOW_NON_PROBABLE_SWAPS,
@@ -278,7 +277,7 @@ export class IntermediaryRunner extends EventEmitter {
                     ...globalConfig,
                     ...swapConfig,
 
-                    minCltv: new BN(20),
+                    minCltv: 20n,
 
                     swapCheckInterval: 1*60*1000,
                     invoiceTimeoutSeconds: IntermediaryConfig.LN.INVOICE_EXPIRY_SECONDS
@@ -325,7 +324,7 @@ export class IntermediaryRunner extends EventEmitter {
                         max: IntermediaryConfig.LN_TRUSTED.MAX,
                         min: IntermediaryConfig.LN_TRUSTED.MIN,
 
-                        minCltv: new BN(20),
+                        minCltv: 20n,
 
                         swapCheckInterval: 1*60*1000,
                         invoiceTimeoutSeconds: IntermediaryConfig.LN_TRUSTED.INVOICE_EXPIRY_SECONDS

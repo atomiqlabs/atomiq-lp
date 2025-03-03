@@ -7,7 +7,7 @@ import {
     StoredDataAccount
 } from "@atomiqlabs/chain-solana";
 import {
-    bnParser,
+    bigIntParser,
     createCommand,
     numberParser,
     objectParser,
@@ -15,7 +15,6 @@ import {
     stringParser,
     ConfigParser, enumParser
 } from "@atomiqlabs/server-base";
-import * as BN from "bn.js";
 import {StorageManager} from "@atomiqlabs/lp-lib";
 import {getSolanaSigner} from "./signer/AnchorSigner";
 import {SolanaChainEvents} from "@atomiqlabs/chain-solana/dist/solana/events/SolanaChainEvents";
@@ -47,7 +46,7 @@ const template = {
         ENDPOINT: stringParser(),
     }, null, true),
 
-    STATIC_TIP: bnParser(new BN(0), null, true),
+    STATIC_TIP: bigIntParser(0n, null, true),
     HELIUS_FEE_LEVEL: enumParser(["min", "low", "medium", "high", "veryHigh", "unsafeMax"], true),
 
     AUTHORIZATION_TIMEOUT: numberParser(false, 10, 3600, true)

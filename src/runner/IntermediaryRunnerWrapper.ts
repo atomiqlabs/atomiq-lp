@@ -13,7 +13,6 @@ import {
     ToBtcSwapState
 } from "@atomiqlabs/lp-lib";
 import {IntermediaryRunner} from "./IntermediaryRunner";
-import * as BN from "bn.js";
 import {
     cmdEnumParser,
     cmdNumberParser,
@@ -101,7 +100,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             const {swapContract, signer} = this.multichainData.chains[chainId];
                             const nativeTokenAddress = swapContract.getNativeCurrencyAddress();
                             const {decimals, ticker} = this.addressesToTokens[chainId][nativeTokenAddress.toString()];
-                            let nativeTokenBalance: BN;
+                            let nativeTokenBalance: bigint;
                             try {
                                 nativeTokenBalance = await swapContract.getBalance(signer.getAddress(), nativeTokenAddress, false);
                             } catch (e) {
@@ -111,7 +110,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             reply.push("        RPC status: "+(nativeTokenBalance!=null ? "ready" : "offline!"));
                             if(nativeTokenBalance!=null) {
                                 reply.push("        Funds: " + toDecimal(nativeTokenBalance, decimals)+" "+ticker);
-                                reply.push("        Has enough funds (>0.1): " + (nativeTokenBalance.gt(new BN(100000000)) ? "yes" : "no"));
+                                reply.push("        Has enough funds (>0.1): " + (nativeTokenBalance > 100000000n ? "yes" : "no"));
                             }
                         }
 
@@ -195,7 +194,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             for(let tokenAddress in this.addressesToTokens[chainId]) {
                                 const tokenData = this.addressesToTokens[chainId][tokenAddress];
                                 const tokenBalance = await swapContract.getBalance(signer.getAddress(),tokenAddress, true);
-                                reply.push("    "+this.toReadableToken(chainId, tokenData.ticker)+": "+toDecimal(tokenBalance || new BN(0), tokenData.decimals));
+                                reply.push("    "+this.toReadableToken(chainId, tokenData.ticker)+": "+toDecimal(tokenBalance || 0n, tokenData.decimals));
                             }
                         }
 
@@ -205,7 +204,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                                 reply.push("    BTC: unknown (bitcoin wallet not ready)");
                             } else {
                                 const balances = await this.bitcoinWallet.getBalance();
-                                reply.push("    BTC: "+toDecimal(new BN(balances.confirmed), 8)+" (+"+toDecimal(new BN(balances.unconfirmed), 8)+")");
+                                reply.push("    BTC: "+toDecimal(BigInt(balances.confirmed), 8)+" (+"+toDecimal(BigInt(balances.unconfirmed), 8)+")");
                             }
                         }
 
@@ -214,7 +213,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                                 reply.push("    BTC-LN: unknown (lightning wallet not ready)");
                             } else {
                                 const channelBalance = await this.lightningWallet.getLightningBalance();
-                                reply.push("    BTC-LN: "+toDecimal(new BN(channelBalance.localBalance), 8)+" (+"+toDecimal(new BN(channelBalance.unsettledBalance), 8)+")");
+                                reply.push("    BTC-LN: "+toDecimal(BigInt(channelBalance.localBalance), 8)+" (+"+toDecimal(BigInt(channelBalance.unsettledBalance), 8)+")");
                             }
                         }
 
@@ -253,7 +252,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             if(!this.bitcoinWallet.isReady()) throw new Error("Bitcoin wallet not ready yet! Monitor the status with the 'status' command");
                             const amtBN = fromDecimal(args.amount, 8);
 
-                            const res = await this.bitcoinWallet.getSignedTransaction(args.address, amtBN.toNumber(), args.feeRate);
+                            const res = await this.bitcoinWallet.getSignedTransaction(args.address, Number(amtBN), args.feeRate);
                             await this.bitcoinWallet.sendRawTransaction(res.raw);
 
                             return "Transaction sent, txId: "+res.txId;
@@ -468,7 +467,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                                     const swap = _swap as ToBtcLnSwapAbs;
                                     if(args.quotes!==1 && swap.state===ToBtcLnSwapState.SAVED) continue;
                                     const parsedPR = bolt11.decode(swap.pr);
-                                    const sats = new BN(parsedPR.millisatoshis).div(new BN(1000));
+                                    const sats = BigInt(parsedPR.millisatoshis) / 1000n;
                                     const lines = [
                                         toDecimal(swap.data.getAmount(), tokenData.decimals)+" "+tokenData.ticker+" -> "+toDecimal(sats, 8)+" BTC-LN",
                                         "Identifier hash: "+_swap.getIdentifierHash(),
@@ -502,7 +501,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                                     const swap = _swap as FromBtcLnSwapAbs;
                                     if(args.quotes!==1 && swap.state===FromBtcLnSwapState.CREATED) continue;
                                     const parsedPR = bolt11.decode(swap.pr);
-                                    const sats = new BN(parsedPR.millisatoshis).div(new BN(1000));
+                                    const sats = BigInt(parsedPR.millisatoshis) / 1000n;
                                     const lines = [
                                         toDecimal(sats, 8)+" BTC-LN -> "+toDecimal(swap.data.getAmount(), tokenData.decimals)+" "+tokenData.ticker,
                                         "Identifier hash: "+_swap.getIdentifierHash(),
@@ -576,7 +575,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             if(!this.lightningWallet.isReady()) throw new Error("LND node not ready yet! Monitor the status with the 'status' command");
                             const amtBN = args.amount==null ? null : fromDecimal(args.amount.toFixed(8), 8);
                             const resp = await this.lightningWallet.createInvoice({
-                                mtokens: amtBN==null ? undefined : amtBN.mul(new BN(1000))
+                                mtokens: amtBN==null ? undefined : amtBN * 1000n
                             });
                             return "Lightning network invoice: "+resp.request;
                         }

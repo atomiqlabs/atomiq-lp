@@ -2,7 +2,6 @@ import {ChainInitializer} from "../ChainInitializer";
 import {
     numberParser,
     objectParser,
-    percentageToPpmParser,
     stringParser,
     enumParser
 } from "@atomiqlabs/server-base";
