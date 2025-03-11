@@ -61,5 +61,5 @@ export const StarknetChainInitializer: ChainInitializer<StarknetChainType, any, 
     },
     configuration: objectParser(template, (data) => {
         if(data.MNEMONIC_FILE==null && data.PRIVKEY==null) throw new Error("Mnemonic file or explicit private key must be specified!");
-    })
+    }, true)
 };
