@@ -38,6 +38,9 @@ async function main() {
     const allowedTokens: {
         [chainIdentifier: string]: string[]
     } = {};
+    const allowedDepositTokens: {
+        [chainIdentifier: string]: string[]
+    } = {};
     const coinMap: {
         [pair: string]: {
             [chain: string]: {
@@ -51,7 +54,8 @@ async function main() {
             chains: {
                 [chain: string]: {
                     address: string,
-                    decimals: number
+                    decimals: number,
+                    securityDepositAllowed?: boolean
                 }
             },
             pricing: string,
@@ -60,8 +64,16 @@ async function main() {
         coinMap[assetData.pricing] = assetData.chains;
 
         if(!assetData.disabled) for(let chain in assetData.chains) {
+            if(assetData.chains[chain]==null) {
+                delete assetData.chains[chain];
+                continue;
+            }
             if(allowedTokens[chain]==null) allowedTokens[chain] = [];
             allowedTokens[chain].push(assetData.chains[chain].address);
+            if(assetData.chains[chain].securityDepositAllowed) {
+                if(allowedDepositTokens[chain]==null) allowedDepositTokens[chain] = [];
+                allowedDepositTokens[chain].push(assetData.chains[chain].address);
+            }
         }
     }
 
@@ -111,17 +123,20 @@ async function main() {
         lightningWallet = new LNDLightningWallet(lndClient);
     }
 
-    console.log("[Main]: Using RPC: "+IntermediaryConfig.SOLANA.RPC_URL+"!");
-
     //Create multichain data object
     const chains: {[chainId: string]: ChainData & {commands?: Command<any>[]}} = {};
     const registeredChains: {[chainId: string]: ChainInitializer<any, any, any>} = RegisteredChains;
     for(let chainId in registeredChains) {
-        chains[chainId] = registeredChains[chainId].loadChain(IntermediaryConfig[chainId], bitcoinRpc, allowedTokens[chainId] ?? []);
+        if(IntermediaryConfig[chainId]==null) continue;
+        chains[chainId] = {
+            ...registeredChains[chainId].loadChain(IntermediaryConfig[chainId], bitcoinRpc),
+            allowedTokens: allowedTokens[chainId] ?? [],
+            allowedDepositTokens: allowedDepositTokens[chainId]
+        };
     }
     const multiChainData: MultichainData = {
         chains,
-        default: "SOLANA"
+        default: process.env.DEFAULT_CHAIN
     };
 
     //Check token addresses are valid

@@ -1,29 +1,27 @@
-import * as BN from "bn.js";
 
-
-export function fromDecimal(amount: string, decimalCount: number) {
+export function fromDecimal(amount: string, decimalCount: number): bigint {
 
     if(amount.includes(".")) {
         const [before, after] = amount.split(".");
         if(decimalCount<0) {
-            return new BN(before.substring(0, before.length+decimalCount));
+            return BigInt(before.substring(0, before.length+decimalCount));
         }
         if(after.length>decimalCount) {
             //Cut the last digits
-            return new BN((before==="0" ? "" : before)+after.substring(0, decimalCount));
+            return BigInt((before==="0" ? "" : before)+after.substring(0, decimalCount));
         }
-        return new BN((before==="0" ? "" : before)+after.padEnd(decimalCount, "0"));
+        return BigInt((before==="0" ? "" : before)+after.padEnd(decimalCount, "0"));
     } else {
         if(decimalCount<0) {
-            return new BN(amount.substring(0, amount.length+decimalCount));
+            return BigInt(amount.substring(0, amount.length+decimalCount));
         } else {
-            return new BN(amount+"0".repeat(decimalCount));
+            return BigInt(amount+"0".repeat(decimalCount));
         }
     }
 
 }
 
-export function toDecimal(amount: BN, decimalCount: number, cut?: boolean) {
+export function toDecimal(amount: bigint, decimalCount: number, cut?: boolean) {
     if(decimalCount<=0) {
         return amount.toString(10)+"0".repeat(-decimalCount);
     }

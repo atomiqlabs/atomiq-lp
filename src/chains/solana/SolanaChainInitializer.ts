@@ -7,7 +7,7 @@ import {
     StoredDataAccount
 } from "@atomiqlabs/chain-solana";
 import {
-    bnParser,
+    bigIntParser,
     createCommand,
     numberParser,
     objectParser,
@@ -15,7 +15,6 @@ import {
     stringParser,
     ConfigParser, enumParser
 } from "@atomiqlabs/server-base";
-import * as BN from "bn.js";
 import {StorageManager} from "@atomiqlabs/lp-lib";
 import {getSolanaSigner} from "./signer/AnchorSigner";
 import {SolanaChainEvents} from "@atomiqlabs/chain-solana/dist/solana/events/SolanaChainEvents";
@@ -40,19 +39,21 @@ const template = {
     MNEMONIC_FILE: stringParser(null, null, true),
     PRIVKEY: stringParser(128, 128, true),
     ADDRESS: publicKeyParser(true),
-    SECURITY_DEPOSIT_APY: percentageToPpmParser(0),
+    SECURITY_DEPOSIT_APY: percentageToPpmParser(0, undefined, true),
 
     JITO: objectParser({
         PUBKEY: publicKeyParser(),
         ENDPOINT: stringParser(),
     }, null, true),
 
-    STATIC_TIP: bnParser(new BN(0), null, true),
-    HELIUS_FEE_LEVEL: enumParser(["min", "low", "medium", "high", "veryHigh", "unsafeMax"], true)
+    STATIC_TIP: bigIntParser(0n, null, true),
+    HELIUS_FEE_LEVEL: enumParser(["min", "low", "medium", "high", "veryHigh", "unsafeMax"], true),
+
+    AUTHORIZATION_TIMEOUT: numberParser(false, 10, 3600, true)
 };
 
 export const SolanaChainInitializer: ChainInitializer<SolanaChainType, any, typeof template> = {
-    loadChain: (configuration, bitcoinRpc, allowedTokens) => {
+    loadChain: (configuration, bitcoinRpc) => {
         const directory = process.env.STORAGE_DIR;
 
         const AnchorSigner = getSolanaSigner(configuration);
@@ -84,7 +85,6 @@ export const SolanaChainInitializer: ChainInitializer<SolanaChainType, any, type
             swapContract,
             chainEvents,
             btcRelay,
-            allowedTokens,
             commands: [
                 createCommand(
                     "airdrop",
@@ -111,5 +111,5 @@ export const SolanaChainInitializer: ChainInitializer<SolanaChainType, any, type
     },
     configuration: objectParser(template, (data) => {
         if(data.MNEMONIC_FILE==null && data.PRIVKEY==null) throw new Error("Mnemonic file or explicit private key must be specified!");
-    })
+    }, true)
 };

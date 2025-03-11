@@ -1,5 +1,5 @@
 import {
-    booleanParser, decimalToBNParser,
+    booleanParser, decimalToBigIntParser,
     dictionaryParserWithKeys,
     enumParser,
     numberParser,
@@ -53,10 +53,10 @@ const IntermediaryConfigTemplate = {
     }),
 
     LN: objectParser({
-        BASE_FEE: decimalToBNParser(8, 0),
+        BASE_FEE: decimalToBigIntParser(8, 0),
         FEE_PERCENTAGE: percentageToPpmParser(0),
-        MIN: decimalToBNParser(8, 0),
-        MAX: decimalToBNParser(8, 0),
+        MIN: decimalToBigIntParser(8, 0),
+        MAX: decimalToBigIntParser(8, 0),
 
         ALLOW_NON_PROBABLE_SWAPS: booleanParser(),
         ALLOW_LN_SHORT_EXPIRY: booleanParser(),
@@ -66,10 +66,10 @@ const IntermediaryConfigTemplate = {
     }, null, true),
 
     ONCHAIN: objectParser({
-        BASE_FEE: decimalToBNParser(8, 0),
+        BASE_FEE: decimalToBigIntParser(8, 0),
         FEE_PERCENTAGE: percentageToPpmParser(0),
-        MIN: decimalToBNParser(8, 0),
-        MAX: decimalToBNParser(8, 0),
+        MIN: decimalToBigIntParser(8, 0),
+        MAX: decimalToBigIntParser(8, 0),
 
         NETWORK_FEE_ADD_PERCENTAGE: numberParser(true, 0, null),
 
@@ -79,31 +79,33 @@ const IntermediaryConfigTemplate = {
     }, null, true),
 
     LN_TRUSTED: objectParser({
-        BASE_FEE: decimalToBNParser(8, 0),
+        BASE_FEE: decimalToBigIntParser(8, 0),
         FEE_PERCENTAGE: percentageToPpmParser(0),
-        MIN: decimalToBNParser(8, 0),
-        MAX: decimalToBNParser(8, 0),
+        MIN: decimalToBigIntParser(8, 0),
+        MAX: decimalToBigIntParser(8, 0),
 
         INVOICE_EXPIRY_SECONDS: numberParser(false, 0, 3600, true)
     }, null, true),
 
     ONCHAIN_TRUSTED: objectParser({
-        BASE_FEE: decimalToBNParser(8, 0),
+        BASE_FEE: decimalToBigIntParser(8, 0),
         FEE_PERCENTAGE: percentageToPpmParser(0),
-        MIN: decimalToBNParser(8, 0),
-        MAX: decimalToBNParser(8, 0),
+        MIN: decimalToBigIntParser(8, 0),
+        MAX: decimalToBigIntParser(8, 0),
 
         SWAP_EXPIRY_SECONDS: numberParser(false, 0, 72*3600, true)
     }, null, true),
 
     PRICE_SOURCE: enumParser(["binance", "okx"], true),
+    SECURITY_DEPOSIT_APY: percentageToPpmParser(0, undefined, true),
 
     ASSETS: dictionaryParser(
         objectParser({
             chains: dictionaryParserWithKeys(
                 objectParser({
                     address: stringParser(),
-                    decimals: numberParser(false, 0)
+                    decimals: numberParser(false, 0),
+                    securityDepositAllowed: booleanParser(true)
                 }, null, true),
                 allowedChains
             ),
