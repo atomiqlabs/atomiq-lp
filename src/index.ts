@@ -5,7 +5,7 @@ import * as fs from "fs/promises";
 import {testnet} from "bitcoinjs-lib/src/networks";
 import {
     BinanceSwapPrice,
-    ChainData, IBitcoinWallet, ILightningWallet, ISwapPrice,
+    ChainData, IBitcoinWallet, ILightningWallet, ISpvVaultSigner, ISwapPrice,
     MultichainData, OKXSwapPrice,
 } from "@atomiqlabs/lp-lib";
 import {
@@ -20,6 +20,7 @@ import {IntermediaryRunnerWrapper} from "./runner/IntermediaryRunnerWrapper";
 import {ChainInitializer, RegisteredChains} from "./chains/ChainInitializer";
 import {Command} from "@atomiqlabs/server-base";
 import {BITCOIN_NETWORK} from "./constants/Constants";
+import {BitcoinSpvVaultSigner} from "./bitcoin/BitcoinSpvVaultSigner";
 
 const bitcoin_chainparams = { ...testnet };
 bitcoin_chainparams.bip32 = {
@@ -41,6 +42,11 @@ async function main() {
     const allowedDepositTokens: {
         [chainIdentifier: string]: string[]
     } = {};
+    const tokenMultipliers: {
+        [chainIdentifier: string]: {
+            [tokenAddress: string]: bigint
+        }
+    } = {};
     const coinMap: {
         [pair: string]: {
             [chain: string]: {
@@ -55,7 +61,8 @@ async function main() {
                 [chain: string]: {
                     address: string,
                     decimals: number,
-                    securityDepositAllowed?: boolean
+                    securityDepositAllowed?: boolean,
+                    spvVaultMultiplier?: bigint
                 }
             },
             pricing: string,
@@ -74,6 +81,10 @@ async function main() {
                 if(allowedDepositTokens[chain]==null) allowedDepositTokens[chain] = [];
                 allowedDepositTokens[chain].push(assetData.chains[chain].address);
             }
+            if(assetData.chains[chain].spvVaultMultiplier!=null) {
+                if(tokenMultipliers[chain]==null) tokenMultipliers[chain] = {};
+                tokenMultipliers[chain][assetData.chains[chain].address] = assetData.chains[chain].spvVaultMultiplier;
+            }
         }
     }
 
@@ -91,6 +102,7 @@ async function main() {
     let bitcoinWallet: IBitcoinWallet;
     let lightningWallet: ILightningWallet;
     let lndClient: LNDClient;
+    let spvVaultSigner: ISpvVaultSigner;
     if(IntermediaryConfig.ONCHAIN_TRUSTED!=null || IntermediaryConfig.ONCHAIN!=null) {
         bitcoinRpc = new BitcoindRpc(
             IntermediaryConfig.BITCOIND.PROTOCOL,
@@ -107,8 +119,8 @@ async function main() {
             IntermediaryConfig.BITCOIND.PORT,
             IntermediaryConfig.BITCOIND.RPC_USERNAME,
             IntermediaryConfig.BITCOIND.RPC_PASSWORD,
-            IntermediaryConfig.ONCHAIN?.ADD_NETWORK_FEE,
-            IntermediaryConfig.ONCHAIN?.MULTIPLY_NETWORK_FEE
+            IntermediaryConfig.BITCOIND?.ADD_NETWORK_FEE,
+            IntermediaryConfig.BITCOIND?.MULTIPLY_NETWORK_FEE
         );
         lndClient = new LNDClient(IntermediaryConfig.LND);
         const directory = process.env.STORAGE_DIR;
@@ -122,6 +134,9 @@ async function main() {
         if(lndClient==null) lndClient = new LNDClient(IntermediaryConfig.LND);
         lightningWallet = new LNDLightningWallet(lndClient);
     }
+    if(IntermediaryConfig.ONCHAIN_SPV!=null) {
+        spvVaultSigner = new BitcoinSpvVaultSigner(IntermediaryConfig.ONCHAIN_SPV.MNEMONIC_FILE, BITCOIN_NETWORK);
+    }
 
     //Create multichain data object
     const chains: {[chainId: string]: ChainData & {commands?: Command<any>[]}} = {};
@@ -131,7 +146,8 @@ async function main() {
         chains[chainId] = {
             ...registeredChains[chainId].loadChain(IntermediaryConfig[chainId], bitcoinRpc),
             allowedTokens: allowedTokens[chainId] ?? [],
-            allowedDepositTokens: allowedDepositTokens[chainId]
+            allowedDepositTokens: allowedDepositTokens[chainId],
+            tokenMultipliers: tokenMultipliers[chainId]
         };
     }
     const multiChainData: MultichainData = {
@@ -156,7 +172,7 @@ async function main() {
             const chainData = chains[chainId];
             if(chainData==null) throw new Error("Unknown chain identifier ("+chainId+") while checking tokens, known chains: "+Object.keys(chains).join());
             try {
-                chainData.swapContract.isValidToken(address);
+                chainData.chainInterface.isValidToken(address);
             } catch (e) {
                 console.error(e);
                 throw new Error("Invalid token address specified for token: "+asset+" chain: "+chainId);
@@ -171,7 +187,8 @@ async function main() {
         prices,
         bitcoinRpc,
         bitcoinWallet,
-        lightningWallet
+        lightningWallet,
+        spvVaultSigner
     );
     for(let chainId in chains) {
         if(chains[chainId].commands!=null) chains[chainId].commands.forEach(cmd => runner.cmdHandler.registerCommand(cmd));

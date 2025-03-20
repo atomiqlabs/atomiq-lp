@@ -6,10 +6,10 @@ import {
     enumParser
 } from "@atomiqlabs/server-base";
 import {
-    StarknetBtcRelay,
+    StarknetBtcRelay, StarknetChainInterface,
     StarknetChainType,
     StarknetFees,
-    StarknetSigner,
+    StarknetSigner, StarknetSpvVaultContract,
     StarknetSwapContract
 } from "@atomiqlabs/chain-starknet";
 import {getStarknetSigner} from "./signer/StarknetSigner";
@@ -39,15 +39,21 @@ export const StarknetChainInitializer: ChainInitializer<StarknetChainType, any, 
 
         const starknetFees = new StarknetFees(provider, configuration.FEE_TOKEN, configuration.MAX_FEE_GWEI*1000000000);
 
+        const chainInterface = new StarknetChainInterface(chainId, provider, undefined, starknetFees);
+
         const btcRelay = new StarknetBtcRelay(
-            chainId, provider, bitcoinRpc, undefined, undefined, starknetFees
+            chainInterface, bitcoinRpc
         );
 
         const swapContract = new StarknetSwapContract(
-            chainId, provider, btcRelay, undefined, undefined, starknetFees
+            chainInterface, btcRelay
         );
 
-        const chainEvents = new StarknetChainEvents(directory, swapContract);
+        const spvVaultContract = new StarknetSpvVaultContract(
+            chainInterface, btcRelay, bitcoinRpc
+        );
+
+        const chainEvents = new StarknetChainEvents(directory, chainInterface, swapContract, spvVaultContract);
 
         const signer = new StarknetSigner(starknetSigner);
 
@@ -56,6 +62,8 @@ export const StarknetChainInitializer: ChainInitializer<StarknetChainType, any, 
             swapContract,
             chainEvents,
             btcRelay,
+            chainInterface,
+            spvVaultContract,
             commands: []
         };
     },
