@@ -20,7 +20,7 @@ import {
     ToBtcAbs,
     ToBtcLnAbs,
     IBitcoinWallet,
-    ILightningWallet
+    ILightningWallet, ISpvVaultSigner, SpvVaultSwapHandler, StorageManager
 } from "@atomiqlabs/lp-lib";
 import {BitcoinRpc, BtcSyncInfo} from "@atomiqlabs/base";
 import http2Express from "http2-express-bridge";
@@ -29,6 +29,7 @@ import * as cors from "cors";
 import {LetsEncryptACME} from "../LetsEncryptACME";
 import * as tls from "node:tls";
 import {EventEmitter} from "node:events";
+import {fromDecimal} from "@atomiqlabs/server-base";
 
 export enum IntermediaryInitState {
     STARTING="starting",
@@ -45,7 +46,7 @@ export enum IntermediaryInitState {
     READY="ready"
 }
 
-function removeAllowedAssets(handler: SwapHandler, assets: string[]) {
+function removeAllowedAssets(handler: SwapHandler<any>, assets: string[]) {
     if(assets==null) return;
     assets.forEach(val => {
         const arr = val.split("-");
@@ -82,8 +83,10 @@ export class IntermediaryRunner extends EventEmitter {
     readonly bitcoinRpc?: BitcoinRpc<any>;
     readonly bitcoinWallet?: IBitcoinWallet;
     readonly lightningWallet?: ILightningWallet;
+    readonly spvVaultSigner?: ISpvVaultSigner;
 
-    readonly swapHandlers: SwapHandler<SwapHandlerSwap>[] = [];
+    readonly swapHandlers: SwapHandler<any>[] = [];
+    spvSwapHandler: SpvVaultSwapHandler;
     infoHandler: InfoHandler;
 
     initState: IntermediaryInitState = IntermediaryInitState.STARTING;
@@ -113,7 +116,8 @@ export class IntermediaryRunner extends EventEmitter {
         prices: ISwapPrice,
         bitcoinRpc: BitcoinRpc<any>,
         bitcoinWallet: IBitcoinWallet,
-        lightningWallet: ILightningWallet
+        lightningWallet: ILightningWallet,
+        spvVaultSigner: ISpvVaultSigner
     ) {
         super();
         this.directory = directory;
@@ -123,6 +127,7 @@ export class IntermediaryRunner extends EventEmitter {
         this.bitcoinRpc = bitcoinRpc;
         this.bitcoinWallet = bitcoinWallet;
         this.lightningWallet = lightningWallet;
+        this.spvVaultSigner = spvVaultSigner;
     }
 
     /**
@@ -238,6 +243,42 @@ export class IntermediaryRunner extends EventEmitter {
             );
             removeAllowedAssets(frombtc, IntermediaryConfig.ONCHAIN.EXCLUDE_ASSETS);
             this.swapHandlers.push(frombtc);
+        }
+
+        if(IntermediaryConfig.ONCHAIN_SPV!=null) {
+            const gasTokenMax = {};
+            for(let chainId in IntermediaryConfig.ONCHAIN_SPV.GAS_MAX) {
+                const tokenData = this.prices.getTokenData(this.multichainData.chains[chainId].chainInterface.getNativeCurrencyAddress(), chainId);
+                gasTokenMax[chainId] = fromDecimal(IntermediaryConfig.ONCHAIN_SPV.GAS_MAX[chainId].toFixed(tokenData.decimals), tokenData.decimals);
+            }
+            const swapConfig = {
+                baseFee: IntermediaryConfig.ONCHAIN_SPV.BASE_FEE,
+                feePPM: IntermediaryConfig.ONCHAIN_SPV.FEE_PERCENTAGE,
+                max: IntermediaryConfig.ONCHAIN_SPV.MAX,
+                min: IntermediaryConfig.ONCHAIN_SPV.MIN,
+                gasTokenMax
+            };
+
+            if(this.spvVaultSigner!=null) {
+                this.spvSwapHandler = new SpvVaultSwapHandler(
+                    new IntermediaryStorageManager(this.directory + "/frombtc_spv"),
+                    new StorageManager(this.directory+"/frombtc_spv_vaults"),
+                    "/frombtc_spv",
+                    this.multichainData,
+                    this.prices,
+                    this.bitcoinWallet,
+                    this.bitcoinRpc,
+                    this.spvVaultSigner,
+                    {
+                        ...globalConfig,
+                        ...swapConfig,
+
+                        vaultsCheckInterval: 60*1000
+                    }
+                );
+                removeAllowedAssets(this.spvSwapHandler, IntermediaryConfig.ONCHAIN_SPV.EXCLUDE_ASSETS);
+                this.swapHandlers.push(this.spvSwapHandler);
+            }
         }
 
         if(IntermediaryConfig.LN!=null) {
@@ -483,6 +524,9 @@ export class IntermediaryRunner extends EventEmitter {
             this.setState(IntermediaryInitState.WAIT_LIGHTNING_WALLET);
             await this.lightningWallet.init();
         }
+        if(this.spvVaultSigner!=null) {
+            await this.spvVaultSigner.init();
+        }
 
         this.setState(IntermediaryInitState.CONTRACT_INIT);
         for(let chainId in this.multichainData.chains) {
@@ -510,7 +554,7 @@ export class IntermediaryRunner extends EventEmitter {
         for(let chainId in this.multichainData.chains) {
             const chainData = this.multichainData.chains[chainId];
             await chainData.swapContract.start();
-            if(chainData.swapContract.claimDeposits!=null) await chainData.swapContract.claimDeposits(chainData.signer);
+            if(chainData.swapContract.claimDeposits!=null) await chainData.swapContract.claimDeposits(chainData.signer, {waitForConfirmation: true});
             await chainData.chainEvents.init();
         }
 

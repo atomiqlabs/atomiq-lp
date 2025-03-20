@@ -1,6 +1,6 @@
 import {ChainInitializer} from "../ChainInitializer";
 import {
-    SolanaBtcRelay, SolanaChainType,
+    SolanaBtcRelay, SolanaChainInterface, SolanaChainType,
     SolanaFees,
     SolanaSigner,
     SolanaSwapProgram,
@@ -57,27 +57,32 @@ export const SolanaChainInitializer: ChainInitializer<SolanaChainType, any, type
         const directory = process.env.STORAGE_DIR;
 
         const AnchorSigner = getSolanaSigner(configuration);
-        const btcRelay = new SolanaBtcRelay(AnchorSigner.connection, bitcoinRpc, process.env.BTC_RELAY_CONTRACT_ADDRESS);
-        const swapContract = new SolanaSwapProgram(
+
+        const solanaFees = new SolanaFees(
             AnchorSigner.connection,
+            configuration.MAX_FEE_MICRO_LAMPORTS,
+            8,
+            100,
+            "auto",
+            configuration.HELIUS_FEE_LEVEL ?? "veryHigh",
+            configuration.STATIC_TIP!=null ? () => configuration.STATIC_TIP : null,
+            configuration.JITO!=null ? {
+                address: configuration.JITO.PUBKEY.toString(),
+                endpoint: configuration.JITO.ENDPOINT
+            } : null
+        );
+
+        const chainInterface = new SolanaChainInterface(AnchorSigner.connection, undefined, solanaFees);
+
+        const btcRelay = new SolanaBtcRelay(chainInterface, bitcoinRpc, process.env.BTC_RELAY_CONTRACT_ADDRESS);
+
+        const swapContract = new SolanaSwapProgram(
+            chainInterface,
             btcRelay,
             new StorageManager<StoredDataAccount>(directory+"/solaccounts"),
-            process.env.SWAP_CONTRACT_ADDRESS,
-            null,
-            new SolanaFees(
-                AnchorSigner.connection,
-                configuration.MAX_FEE_MICRO_LAMPORTS,
-                8,
-                100,
-                "auto",
-                configuration.HELIUS_FEE_LEVEL ?? "veryHigh",
-                configuration.STATIC_TIP!=null ? () => configuration.STATIC_TIP : null,
-                configuration.JITO!=null ? {
-                    address: configuration.JITO.PUBKEY.toString(),
-                    endpoint: configuration.JITO.ENDPOINT
-                } : null
-            )
+            process.env.SWAP_CONTRACT_ADDRESS
         );
+
         const chainEvents = new SolanaChainEvents(directory, AnchorSigner.connection, swapContract);
 
         return {
@@ -85,6 +90,8 @@ export const SolanaChainInitializer: ChainInitializer<SolanaChainType, any, type
             swapContract,
             chainEvents,
             btcRelay,
+            chainInterface,
+            spvVaultContract: null as never,
             commands: [
                 createCommand(
                     "airdrop",
