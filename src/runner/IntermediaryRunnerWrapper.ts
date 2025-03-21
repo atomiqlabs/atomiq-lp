@@ -764,6 +764,71 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                     }
                 )
             );
+
+            commands.push(
+                createCommand(
+                    "withdrawvault",
+                    "Withdraw funds from the specific spv vault",
+                    {
+                        args: {
+                            asset: {
+                                base: true,
+                                description: "Asset to fund the vault with: "+tokenTickers.join(", "),
+                                parser: cmdEnumParser<string>(tokenTickers)
+                            },
+                            vaultId: {
+                                base: true,
+                                description: "Vault ID to fund",
+                                parser: cmdNumberParser(false, 0, undefined, false)
+                            },
+                            amount: {
+                                base: true,
+                                description: "Amount of the token to withdraw",
+                                parser: cmdStringParser(1)
+                            },
+                            gasAmount: {
+                                base: true,
+                                description: "Amount of the gas token to withdraw",
+                                parser: cmdStringParser(1, undefined, true)
+                            },
+                            feeRate: {
+                                base: false,
+                                description: "Fee rate: sats/vB for BTC transaction",
+                                parser: cmdNumberParser(false, 1, null, true)
+                            }
+                        },
+                        parser: async (args, sendLine) => {
+                            const {chainId, ticker} = this.fromReadableToken(args.asset);
+                            const tokenData = this.tokens[ticker].chains[chainId];
+                            const amountToken0 = fromDecimal(args.amount, tokenData.decimals);
+
+                            const vaults = await this.spvSwapHandler.Vaults.listVaults(chainId, tokenData.address);
+                            sortVaults(vaults);
+
+                            const vault: SpvVault = vaults[args.vaultId];
+                            if(vault==null) throw new Error("Vault with id "+args.vaultId+" not found!");
+                            if(!vault.data.isOpened()) throw new Error("Vault is not opened yet!");
+
+                            const gasTokenData = this.addressesToTokens[chainId][vault.balances[1].token];
+                            let amountToken1: bigint = 0n;
+                            if(args.gasAmount!=null) {
+                                amountToken1 = fromDecimal(args.gasAmount, gasTokenData.decimals);
+                            }
+
+                            const rawAmounts = vault.toRawAmounts([amountToken0, amountToken1]);
+                            const adjustedAmounts = vault.fromRawAmounts(rawAmounts);
+                            sendLine("Amounts scaled and adjusted, withdrawing: "+
+                                toDecimal(adjustedAmounts[0], tokenData.decimals)+" "+ticker+" & "+
+                                toDecimal(adjustedAmounts[1], gasTokenData.decimals)+" "+gasTokenData.ticker);
+
+                            const result = await this.spvSwapHandler.Vaults.withdrawFromVault(vault, rawAmounts, args.feeRate);
+
+                            return "Funds withdrawal initiated, funds will be automatically claimed when bitcoin transaction gets "+
+                                vault.data.getConfirmations()+" confirmations! Bitcoin transaction ID: "+result;
+                        }
+                    }
+                )
+            );
         }
 
         this.cmdHandler = new CommandHandler(commands, IntermediaryConfig.CLI.ADDRESS, IntermediaryConfig.CLI.PORT, "Welcome to atomiq intermediary (LP node) CLI!");
