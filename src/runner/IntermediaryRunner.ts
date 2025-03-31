@@ -409,7 +409,11 @@ export class IntermediaryRunner extends EventEmitter {
                 for await (let change of fs.watch(IntermediaryConfig.SSL.KEY_FILE)) {
                     if(change.eventType==="change") {
                         try {
-                            renewCallback(await fs.readFile(IntermediaryConfig.SSL.KEY_FILE), cert);
+                            renewCallback(
+                                await fs.readFile(IntermediaryConfig.SSL.KEY_FILE),
+                                await fs.readFile(IntermediaryConfig.SSL.CERT_FILE)
+                            );
+                            console.log("IntermediaryRunner: SSL KEY watcher: Updated server certificate!");
                         } catch (e) {
                             console.log("SSL KEY watcher error: ", e);
                             console.error(e);
@@ -421,7 +425,11 @@ export class IntermediaryRunner extends EventEmitter {
                 for await (let change of fs.watch(IntermediaryConfig.SSL.CERT_FILE)) {
                     if(change.eventType==="change") {
                         try {
-                            renewCallback(key, await fs.readFile(IntermediaryConfig.SSL.CERT_FILE));
+                            renewCallback(
+                                await fs.readFile(IntermediaryConfig.SSL.KEY_FILE),
+                                await fs.readFile(IntermediaryConfig.SSL.CERT_FILE)
+                            );
+                            console.log("IntermediaryRunner: SSL CERT watcher: Updated server certificate!");
                         } catch (e) {
                             console.log("SSL CERT watcher error: ", e);
                             console.error(e);
