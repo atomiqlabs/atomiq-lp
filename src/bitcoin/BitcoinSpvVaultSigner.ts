@@ -65,12 +65,12 @@ export class BitcoinSpvVaultSigner implements ISpvVaultSigner {
         const parsed = p2tr(pubSchnorr(key.privateKey), null, this.network);
         inputs.forEach(vin => {
             psbt.updateInput(vin, {
-                tapInternalKey: parsed.tapInternalKey,
-                tapMerkleRoot: parsed.tapMerkleRoot,
-                tapLeafScript: parsed.tapLeafScript
+                tapInternalKey: parsed.tapInternalKey
             });
             psbt.signIdx(key.privateKey, vin, [0x01, 0x00]);
+            psbt.finalizeIdx(vin);
         });
+        console.log("Raw tx: ", Buffer.from(psbt.toBytes(true, true)).toString("hex"));
         return Promise.resolve(psbt);
     }
 

@@ -273,7 +273,8 @@ export class IntermediaryRunner extends EventEmitter {
                         ...globalConfig,
                         ...swapConfig,
 
-                        vaultsCheckInterval: 60*1000
+                        vaultsCheckInterval: 60*1000,
+                        maxUnclaimedWithdrawals: 5
                     }
                 );
                 removeAllowedAssets(this.spvSwapHandler, IntermediaryConfig.ONCHAIN_SPV.EXCLUDE_ASSETS);
