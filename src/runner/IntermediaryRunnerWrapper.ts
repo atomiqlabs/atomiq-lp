@@ -443,7 +443,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                         const swapData: string[] = [];
                         for(let swapHandler of this.swapHandlers) {
                             for(let {obj: _swap} of await swapHandler.storageManager.query([])) {
-                                const tokenData = this.addressesToTokens[_swap.chainIdentifier][_swap.data.getToken().toString()];
+                                const tokenData = this.addressesToTokens[_swap.chainIdentifier][_swap.getToken().toString()];
                                 if(_swap.type===SwapHandlerType.TO_BTC) {
                                     const swap = _swap as ToBtcSwapAbs;
                                     if(args.quotes!==1 && swap.state===ToBtcSwapState.SAVED) continue;
@@ -503,7 +503,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                                     const parsedPR = bolt11.decode(swap.pr);
                                     const sats = BigInt(parsedPR.millisatoshis) / 1000n;
                                     const lines = [
-                                        toDecimal(sats, 8)+" BTC-LN -> "+toDecimal(swap.data.getAmount(), tokenData.decimals)+" "+tokenData.ticker,
+                                        toDecimal(sats, 8)+" BTC-LN -> "+toDecimal(swap.getOutputAmount(), tokenData.decimals)+" "+tokenData.ticker,
                                         "Identifier hash: "+_swap.getIdentifierHash(),
                                         "Escrow hash: "+_swap.getEscrowHash(),
                                         "Claim hash: "+_swap.getClaimHash(),
