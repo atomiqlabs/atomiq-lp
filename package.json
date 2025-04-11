@@ -41,7 +41,6 @@
     "express": "4.21.1",
     "http2-express-bridge": "1.0.7",
     "public-ip": "6.0.2",
-    "spv-vault-manager": "file:../../Plugins/spv-vault-manager",
     "starknet": "6.23.1",
     "yaml": "2.4.1"
   },
