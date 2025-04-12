@@ -103,7 +103,7 @@ async function main() {
     let lightningWallet: ILightningWallet;
     let lndClient: LNDClient;
     let spvVaultSigner: ISpvVaultSigner;
-    if(IntermediaryConfig.ONCHAIN_TRUSTED!=null || IntermediaryConfig.ONCHAIN!=null) {
+    if(IntermediaryConfig.ONCHAIN_TRUSTED!=null || IntermediaryConfig.ONCHAIN!=null || IntermediaryConfig.ONCHAIN_SPV!=null) {
         bitcoinRpc = new BitcoindRpc(
             IntermediaryConfig.BITCOIND.PROTOCOL,
             IntermediaryConfig.BITCOIND.RPC_USERNAME,
