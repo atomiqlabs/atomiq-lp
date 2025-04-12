@@ -248,6 +248,7 @@ export class IntermediaryRunner extends EventEmitter {
         if(IntermediaryConfig.ONCHAIN_SPV!=null) {
             const gasTokenMax = {};
             for(let chainId in IntermediaryConfig.ONCHAIN_SPV.GAS_MAX) {
+                if(IntermediaryConfig.ONCHAIN_SPV.GAS_MAX[chainId]==null) continue;
                 const tokenData = this.prices.getTokenData(this.multichainData.chains[chainId].chainInterface.getNativeCurrencyAddress(), chainId);
                 gasTokenMax[chainId] = fromDecimal(IntermediaryConfig.ONCHAIN_SPV.GAS_MAX[chainId].toFixed(tokenData.decimals), tokenData.decimals);
             }
