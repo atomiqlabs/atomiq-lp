@@ -86,7 +86,7 @@ const IntermediaryConfigTemplate = {
         MIN: decimalToBigIntParser(8, 0),
         MAX: decimalToBigIntParser(8, 0),
         GAS_MAX: dictionaryParserWithKeys(
-            numberParser(true, 0),
+            numberParser(true, 0, undefined, true),
             allowedChains
         ),
 
