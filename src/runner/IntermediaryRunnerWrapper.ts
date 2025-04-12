@@ -590,6 +590,9 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                     }
                 )
             );
+        }
+
+        if(this.spvVaultSigner!=null) {
             commands.push(
                 createCommand(
                     "listvaults",
