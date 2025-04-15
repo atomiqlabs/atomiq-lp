@@ -170,13 +170,15 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             reply.push(chainId+" address: "+signer.getAddress());
                         }
 
-                        if(!this.bitcoinWallet.isReady()) {
-                            reply.push("Bitcoin address: unknown (bitcoin wallet not ready)");
+                        if(this.bitcoinWallet!=null) {
+                            if(!this.bitcoinWallet.isReady()) {
+                                reply.push("Bitcoin address: unknown (bitcoin wallet not ready)");
+                                return reply.join("\n");
+                            }
+
+                            reply.push("Bitcoin address: "+await this.bitcoinWallet.getAddress());
                             return reply.join("\n");
                         }
-
-                        reply.push("Bitcoin address: "+await this.bitcoinWallet.getAddress());
-                        return reply.join("\n");
                     }
                 }
             ),
