@@ -73,6 +73,12 @@ const IntermediaryConfigTemplate = {
         MIN: decimalToBigIntParser(8, 0),
         MAX: decimalToBigIntParser(8, 0),
 
+        MIN_TO_BTC: decimalToBigIntParser(8, 0, undefined, true),
+        MAX_TO_BTC: decimalToBigIntParser(8, 0, undefined, true),
+
+        MIN_FROM_BTC: decimalToBigIntParser(8, 0, undefined, true),
+        MAX_FROM_BTC: decimalToBigIntParser(8, 0, undefined, true),
+
         NETWORK_FEE_ADD_PERCENTAGE: numberParser(true, 0, null),
 
         EXCLUDE_ASSETS: arrayParser(stringParser(), true)
