@@ -431,7 +431,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             const {status, url} = await this.lpRegistry.getRegistrationStatus();
                             return "LP registration status: "+status+"\nGithub PR: "+url;
                         } else {
-                            const url = await this.lpRegistry.register(IntermediaryConfig.BITCOIND.NETWORK==="testnet", this.sslAutoUrl, args.mail==="" ? null : args.mail);
+                            const url = await this.lpRegistry.register(IntermediaryConfig.BITCOIND.NETWORK, this.sslAutoUrl, args.mail==="" ? null : args.mail);
                             return "LP registration request created: "+url;
                         }
                     }

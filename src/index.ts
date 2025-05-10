@@ -2,7 +2,6 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 import * as fs from "fs/promises";
-import {testnet} from "bitcoinjs-lib/src/networks";
 import {
     BinanceSwapPrice,
     ChainData, IBitcoinWallet, ILightningWallet, ISpvVaultSigner, ISwapPrice,
@@ -21,12 +20,7 @@ import {ChainInitializer, RegisteredChains} from "./chains/ChainInitializer";
 import {Command} from "@atomiqlabs/server-base";
 import {BITCOIN_NETWORK} from "./constants/Constants";
 import {BitcoinSpvVaultSigner} from "./bitcoin/BitcoinSpvVaultSigner";
-
-const bitcoin_chainparams = { ...testnet };
-bitcoin_chainparams.bip32 = {
-    public: 0x045f1cf6,
-    private: 0x045f18bc,
-};
+import {BitcoinNetwork} from "@atomiqlabs/base";
 
 async function main() {
     const directory = process.env.STORAGE_DIR;
@@ -98,6 +92,8 @@ async function main() {
             break;
     }
 
+    const bitcoinNetwork: BitcoinNetwork = BitcoinNetwork[IntermediaryConfig.BITCOIND.NETWORK.toUpperCase()];
+
     let bitcoinRpc: BitcoindRpc;
     let bitcoinWallet: IBitcoinWallet;
     let lightningWallet: ILightningWallet;
@@ -144,7 +140,7 @@ async function main() {
     for(let chainId in registeredChains) {
         if(IntermediaryConfig[chainId]==null) continue;
         chains[chainId] = {
-            ...registeredChains[chainId].loadChain(IntermediaryConfig[chainId], bitcoinRpc),
+            ...registeredChains[chainId].loadChain(IntermediaryConfig[chainId], bitcoinRpc, bitcoinNetwork),
             allowedTokens: allowedTokens[chainId] ?? [],
             allowedDepositTokens: allowedDepositTokens[chainId],
             tokenMultipliers: tokenMultipliers[chainId]

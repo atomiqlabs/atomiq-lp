@@ -30,7 +30,7 @@ const template = {
 };
 
 export const StarknetChainInitializer: ChainInitializer<StarknetChainType, any, typeof template> = {
-    loadChain: (configuration, bitcoinRpc) => {
+    loadChain: (configuration, bitcoinRpc, bitcoinNetwork) => {
         const directory = process.env.STORAGE_DIR;
 
         const chainId = configuration.CHAIN==="MAIN" ? constants.StarknetChainId.SN_MAIN : constants.StarknetChainId.SN_SEPOLIA;
@@ -43,7 +43,7 @@ export const StarknetChainInitializer: ChainInitializer<StarknetChainType, any, 
         const chainInterface = new StarknetChainInterface(chainId, provider, undefined, starknetFees);
 
         const btcRelay = new StarknetBtcRelay(
-            chainInterface, bitcoinRpc
+            chainInterface, bitcoinRpc, bitcoinNetwork
         );
 
         const swapContract = new StarknetSwapContract(
