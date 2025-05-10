@@ -198,9 +198,7 @@ export class IntermediaryRunner extends EventEmitter {
         if(IntermediaryConfig.ONCHAIN!=null) {
             const swapConfig = {
                 baseFee: IntermediaryConfig.ONCHAIN.BASE_FEE,
-                feePPM: IntermediaryConfig.ONCHAIN.FEE_PERCENTAGE,
-                max: IntermediaryConfig.ONCHAIN.MAX,
-                min: IntermediaryConfig.ONCHAIN.MIN
+                feePPM: IntermediaryConfig.ONCHAIN.FEE_PERCENTAGE
             };
             const tobtc = new ToBtcAbs(
                 new IntermediaryStorageManager(this.directory + "/tobtc"),
@@ -222,7 +220,10 @@ export class IntermediaryRunner extends EventEmitter {
                     maxConfTarget: 12,
                     minConfTarget: 1,
 
-                    txCheckInterval: 10 * 1000
+                    txCheckInterval: 10 * 1000,
+
+                    max: IntermediaryConfig.ONCHAIN.MAX_TO_BTC ?? IntermediaryConfig.ONCHAIN.MAX,
+                    min: IntermediaryConfig.ONCHAIN.MIN_TO_BTC ?? IntermediaryConfig.ONCHAIN.MIN
                 }
             );
             removeAllowedAssets(tobtc, IntermediaryConfig.ONCHAIN.EXCLUDE_ASSETS);
@@ -238,7 +239,10 @@ export class IntermediaryRunner extends EventEmitter {
                     ...swapConfig,
 
                     confirmations: 2,
-                    swapCsvDelta: 72
+                    swapCsvDelta: 72,
+
+                    max: IntermediaryConfig.ONCHAIN.MAX_FROM_BTC ?? IntermediaryConfig.ONCHAIN.MAX,
+                    min: IntermediaryConfig.ONCHAIN.MIN_FROM_BTC ?? IntermediaryConfig.ONCHAIN.MIN
                 }
             );
             removeAllowedAssets(frombtc, IntermediaryConfig.ONCHAIN.EXCLUDE_ASSETS);
