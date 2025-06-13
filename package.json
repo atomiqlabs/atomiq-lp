@@ -24,7 +24,7 @@
     "@atomiqlabs/base": "^9.0.0",
     "@atomiqlabs/btc-bitcoind": "^7.0.0",
     "@atomiqlabs/chain-solana": "^9.0.0",
-    "@atomiqlabs/chain-starknet": "^2.0.0",
+    "@atomiqlabs/chain-starknet": "^3.0.0-dev.1",
     "@atomiqlabs/lp-lib": "^13.0.0",
     "@atomiqlabs/server-base": "2.0.0",
     "@atomiqlabs/wallet-lnd": "^3.0.0",
@@ -41,7 +41,7 @@
     "express": "4.21.1",
     "http2-express-bridge": "1.0.7",
     "public-ip": "6.0.2",
-    "starknet": "6.23.1",
+    "starknet": "^7.5.0",
     "yaml": "2.4.1"
   },
   "devDependencies": {
