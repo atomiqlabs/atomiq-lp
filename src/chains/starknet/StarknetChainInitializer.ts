@@ -19,8 +19,9 @@ import {StarknetChainEvents} from "@atomiqlabs/chain-starknet/dist/starknet/even
 
 const template = {
     RPC_URL: stringParser(),
-    MAX_FEE_GWEI: numberParser(false, 0),
-    FEE_TOKEN: enumParser(["STRK", "ETH"]),
+    MAX_L1_FEE_GWEI: numberParser(false, 0),
+    MAX_L2_FEE_GWEI: numberParser(false, 0),
+    MAX_L1_DATA_FEE_GWEI: numberParser(false, 0),
     CHAIN: enumParser(["MAIN", "SEPOLIA"]),
 
     MNEMONIC_FILE: stringParser(null, null, true),
@@ -38,7 +39,11 @@ export const StarknetChainInitializer: ChainInitializer<StarknetChainType, any, 
         const provider = new RpcProviderWithRetries({nodeUrl: configuration.RPC_URL});
         const starknetSigner = getStarknetSigner(configuration, provider);
 
-        const starknetFees = new StarknetFees(provider, configuration.FEE_TOKEN, configuration.MAX_FEE_GWEI*1000000000);
+        const starknetFees = new StarknetFees(provider, {
+            l1GasCost: BigInt(configuration.MAX_L1_FEE_GWEI)*1000000000n,
+            l2GasCost: BigInt(configuration.MAX_L2_FEE_GWEI)*1000000000n,
+            l1DataGasCost: BigInt(configuration.MAX_L1_DATA_FEE_GWEI)*1000000000n,
+        });
 
         const chainInterface = new StarknetChainInterface(chainId, provider, undefined, starknetFees);
 
