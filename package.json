@@ -24,7 +24,7 @@
     "@atomiqlabs/base": "^11.0.0",
     "@atomiqlabs/btc-bitcoind": "^9.0.0",
     "@atomiqlabs/chain-solana": "^11.0.0",
-    "@atomiqlabs/chain-starknet": "^3.0.0-dev.1",
+    "@atomiqlabs/chain-starknet": "^3.0.0-beta.1",
     "@atomiqlabs/lp-lib": "^15.0.2",
     "@atomiqlabs/server-base": "2.0.0",
     "@atomiqlabs/wallet-lnd": "^5.0.0",
