@@ -35,7 +35,7 @@ const IntermediaryConfigTemplate = {
         HOST: stringParser(),
         RPC_USERNAME: stringParser(),
         RPC_PASSWORD: stringParser(),
-        NETWORK: enumParser<"mainnet" | "testnet" | "testnet4">(["mainnet", "testnet", "testnet4"]),
+        NETWORK: enumParser<"mainnet" | "testnet" | "testnet4" | "regtest">(["mainnet", "testnet", "testnet4", "regtest"]),
         ADD_NETWORK_FEE: numberParser(true, 0, null, true),
         MULTIPLY_NETWORK_FEE: numberParser(true, 0, null, true)
     }),
