@@ -21,10 +21,10 @@
   "author": "adambor",
   "license": "ISC",
   "dependencies": {
-    "@atomiqlabs/base": "^9.0.0",
+    "@atomiqlabs/base": "^9.1.0",
     "@atomiqlabs/btc-bitcoind": "^7.0.0",
     "@atomiqlabs/chain-solana": "^9.0.0",
-    "@atomiqlabs/chain-starknet": "^3.0.0-dev.1",
+    "@atomiqlabs/chain-starknet": "^3.0.0-beta.1",
     "@atomiqlabs/lp-lib": "^13.0.0",
     "@atomiqlabs/server-base": "2.0.0",
     "@atomiqlabs/wallet-lnd": "^3.0.0",
