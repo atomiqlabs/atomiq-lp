@@ -1,27 +1,23 @@
-SECURITY_DEPOSIT_APY: 80
+SECURITY_DEPOSIT_APY: 20
 
 #Solana RPC
 SOLANA:
-  RPC_URL: "https://api.mainnet-beta.solana.com"
+  RPC_URL: "http://127.0.0.1:8899"
   MAX_FEE_MICRO_LAMPORTS: 250000
   HELIUS_FEE_LEVEL: "veryHigh"
 
   STATIC_TIP: 100000
 
   MNEMONIC_FILE: "./wallet.txt"
-#  JITO:
-#    PUBKEY: "DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL"
-#    ENDPOINT: "https://frankfurt.mainnet.block-engine.jito.wtf/api/v1/transactions"
 
-#Starknet RPC
 STARKNET:
-  RPC_URL: "https://starknet-mainnet.public.blastapi.io/rpc/v0_8"
+  RPC_URL: "http://127.0.0.1:5050/rpc/v0_8"
 
   MAX_L1_FEE_GWEI: 4000000
   MAX_L2_FEE_GWEI: 4000000
   MAX_L1_DATA_FEE_GWEI: 4000000
 
-  CHAIN: "MAIN"
+  CHAIN: "SEPOLIA"
 
   MNEMONIC_FILE: "./wallet.txt"
   AUTHORIZATION_TIMEOUT: 60
@@ -29,18 +25,18 @@ STARKNET:
 #Bitcoin RPC
 BITCOIND:
   PROTOCOL: "http"
-  PORT: 8332
+  PORT: 18332
   HOST: "127.0.0.1"
   RPC_USERNAME: "user"
   RPC_PASSWORD: "password"
-  NETWORK: "mainnet"
+  NETWORK: "regtest"
 
 #LND RPC
 LND:
   CERT_FILE: "~/.lnd/tls.cert"
-  MACAROON_FILE: "~/.lnd/data/chain/bitcoin/mainnet/admin.macaroon"
+  MACAROON_FILE: "~/.lnd/data/chain/bitcoin/regtest/admin.macaroon"
   HOST: "127.0.0.1"
-  PORT: 10009
+  PORT: 20009
   MNEMONIC_FILE: "./wallet.txt"
   WALLET_PASSWORD_FILE: "./password.txt"
 
@@ -63,6 +59,8 @@ ONCHAIN:
 
   NETWORK_FEE_ADD_PERCENTAGE: 25
 
+  ADD_NETWORK_FEE: 5
+
 ONCHAIN_SPV:
   MNEMONIC_FILE: "./wallet.txt"
 
@@ -76,27 +74,6 @@ ONCHAIN_SPV:
     SOLANA: 0.05
 
 ASSETS:
-  WBTC:
-    chains:
-      SOLANA:
-        address: "3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh"
-        decimals: 8
-      STARKNET:
-        address: "0x03fe2b97c1fd336e750087d68b9b867997fd64a2661ff3ca5a7c771641e8e7ac"
-        decimals: 8
-    pricing: "WBTCBTC"
-  USDC:
-    chains:
-      SOLANA:
-        address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
-        decimals: 6
-    pricing: "!BTCUSDC"
-  USDT:
-    chains:
-      SOLANA:
-        address: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
-        decimals: 6
-    pricing: "!BTCUSDT"
   SOL:
     chains:
       SOLANA:
@@ -123,18 +100,14 @@ ASSETS:
 
 CLI:
   ADDRESS: "127.0.0.1"
-  PORT: 40221
+  PORT: 40121
 
 REST:
   ADDRESS: "0.0.0.0"
-  PORT: 4000
+  PORT: 4001
 
-SSL_AUTO:
-  HTTP_LISTEN_PORT: 80
-  DNS_PROXY: "nip.io"
-
-#SSL:
-#  CERT_FILE: "./server.cert"
-#  KEY_FILE: "./server.key"
+SSL:
+  CERT_FILE: "./server.cert"
+  KEY_FILE: "./server.key"
 
 #PLUGINS:
