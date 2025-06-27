@@ -11,9 +11,12 @@ SOLANA:
   MNEMONIC_FILE: "./wallet.txt"
 
 STARKNET:
-  RPC_URL: "https://starknet-sepolia.public.blastapi.io/rpc/v0_7"
-  MAX_FEE_GWEI: 4000000
-  FEE_TOKEN: "STRK"
+  RPC_URL: "https://starknet-sepolia.public.blastapi.io/rpc/v0_8"
+
+  MAX_L1_FEE_GWEI: 4000000
+  MAX_L2_FEE_GWEI: 4000000
+  MAX_L1_DATA_FEE_GWEI: 4000000
+
   CHAIN: "SEPOLIA"
 
   MNEMONIC_FILE: "./wallet.txt"
