@@ -6,14 +6,15 @@ import {
     enumParser
 } from "@atomiqlabs/server-base";
 import {
-    StarknetBtcRelay,
+    RpcProviderWithRetries,
+    StarknetBtcRelay, StarknetChainInterface,
     StarknetChainType,
     StarknetFees,
-    StarknetSigner,
+    StarknetSigner, StarknetSpvVaultContract,
     StarknetSwapContract
 } from "@atomiqlabs/chain-starknet";
 import {getStarknetSigner} from "./signer/StarknetSigner";
-import {constants, RpcProvider} from "starknet";
+import {constants} from "starknet";
 import {StarknetChainEvents} from "@atomiqlabs/chain-starknet/dist/starknet/events/StarknetChainEvents";
 
 const template = {
@@ -29,25 +30,31 @@ const template = {
 };
 
 export const StarknetChainInitializer: ChainInitializer<StarknetChainType, any, typeof template> = {
-    loadChain: (configuration, bitcoinRpc) => {
+    loadChain: (configuration, bitcoinRpc, bitcoinNetwork) => {
         const directory = process.env.STORAGE_DIR;
 
         const chainId = configuration.CHAIN==="MAIN" ? constants.StarknetChainId.SN_MAIN : constants.StarknetChainId.SN_SEPOLIA;
 
-        const provider = new RpcProvider({nodeUrl: configuration.RPC_URL});
+        const provider = new RpcProviderWithRetries({nodeUrl: configuration.RPC_URL});
         const starknetSigner = getStarknetSigner(configuration, provider);
 
         const starknetFees = new StarknetFees(provider, configuration.FEE_TOKEN, configuration.MAX_FEE_GWEI*1000000000);
 
+        const chainInterface = new StarknetChainInterface(chainId, provider, undefined, starknetFees);
+
         const btcRelay = new StarknetBtcRelay(
-            chainId, provider, bitcoinRpc, undefined, undefined, starknetFees
+            chainInterface, bitcoinRpc, bitcoinNetwork
         );
 
         const swapContract = new StarknetSwapContract(
-            chainId, provider, btcRelay, undefined, undefined, starknetFees
+            chainInterface, btcRelay
         );
 
-        const chainEvents = new StarknetChainEvents(directory, swapContract);
+        const spvVaultContract = new StarknetSpvVaultContract(
+            chainInterface, btcRelay, bitcoinRpc
+        );
+
+        const chainEvents = new StarknetChainEvents(directory, chainInterface, swapContract, spvVaultContract);
 
         const signer = new StarknetSigner(starknetSigner);
 
@@ -56,6 +63,8 @@ export const StarknetChainInitializer: ChainInitializer<StarknetChainType, any, 
             swapContract,
             chainEvents,
             btcRelay,
+            chainInterface,
+            spvVaultContract,
             commands: []
         };
     },

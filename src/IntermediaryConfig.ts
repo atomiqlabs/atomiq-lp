@@ -6,7 +6,7 @@ import {
     objectParser,
     parseConfig, percentageToPpmParser,
     stringParser,
-    dictionaryParser, arrayParser
+    dictionaryParser, arrayParser, bigIntParser
 } from "@atomiqlabs/server-base";
 import * as fs from "fs";
 import {parse} from "yaml";
@@ -24,7 +24,7 @@ function getConfigs<T extends { [key: string]: { configuration: any } }>(chainDa
     return result;
 }
 
-const allowedChains = getAllowedChains(RegisteredChains);
+export const allowedChains = getAllowedChains(RegisteredChains);
 
 const IntermediaryConfigTemplate = {
     ...getConfigs(RegisteredChains),
@@ -35,7 +35,9 @@ const IntermediaryConfigTemplate = {
         HOST: stringParser(),
         RPC_USERNAME: stringParser(),
         RPC_PASSWORD: stringParser(),
-        NETWORK: enumParser(["mainnet", "testnet"]),
+        NETWORK: enumParser<"mainnet" | "testnet" | "testnet4">(["mainnet", "testnet", "testnet4"]),
+        ADD_NETWORK_FEE: numberParser(true, 0, null, true),
+        MULTIPLY_NETWORK_FEE: numberParser(true, 0, null, true)
     }),
 
     LND: objectParser({
@@ -71,10 +73,29 @@ const IntermediaryConfigTemplate = {
         MIN: decimalToBigIntParser(8, 0),
         MAX: decimalToBigIntParser(8, 0),
 
+        MIN_TO_BTC: decimalToBigIntParser(8, 0, undefined, true),
+        MAX_TO_BTC: decimalToBigIntParser(8, 0, undefined, true),
+
+        MIN_FROM_BTC: decimalToBigIntParser(8, 0, undefined, true),
+        MAX_FROM_BTC: decimalToBigIntParser(8, 0, undefined, true),
+
         NETWORK_FEE_ADD_PERCENTAGE: numberParser(true, 0, null),
 
-        ADD_NETWORK_FEE: numberParser(true, 0, null, true),
-        MULTIPLY_NETWORK_FEE: numberParser(true, 0, null, true),
+        EXCLUDE_ASSETS: arrayParser(stringParser(), true)
+    }, null, true),
+
+    ONCHAIN_SPV: objectParser({
+        MNEMONIC_FILE: stringParser(null, null, false),
+
+        BASE_FEE: decimalToBigIntParser(8, 0),
+        FEE_PERCENTAGE: percentageToPpmParser(0),
+        MIN: decimalToBigIntParser(8, 0),
+        MAX: decimalToBigIntParser(8, 0),
+        GAS_MAX: dictionaryParserWithKeys(
+            numberParser(true, 0, undefined, true),
+            allowedChains
+        ),
+
         EXCLUDE_ASSETS: arrayParser(stringParser(), true)
     }, null, true),
 
@@ -105,7 +126,8 @@ const IntermediaryConfigTemplate = {
                 objectParser({
                     address: stringParser(),
                     decimals: numberParser(false, 0),
-                    securityDepositAllowed: booleanParser(true)
+                    securityDepositAllowed: booleanParser(true),
+                    spvVaultMultiplier: bigIntParser(1n, undefined, true)
                 }, null, true),
                 allowedChains
             ),

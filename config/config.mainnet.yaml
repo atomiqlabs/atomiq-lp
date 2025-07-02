@@ -1,14 +1,27 @@
+SECURITY_DEPOSIT_APY: 80
+
 #Solana RPC
 SOLANA:
   RPC_URL: "https://api.mainnet-beta.solana.com"
   MAX_FEE_MICRO_LAMPORTS: 250000
-  SECURITY_DEPOSIT_APY: 80
   HELIUS_FEE_LEVEL: "veryHigh"
 
   STATIC_TIP: 100000
+
+  MNEMONIC_FILE: "./wallet.txt"
 #  JITO:
 #    PUBKEY: "DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL"
 #    ENDPOINT: "https://frankfurt.mainnet.block-engine.jito.wtf/api/v1/transactions"
+
+#Starknet RPC
+STARKNET:
+  RPC_URL: "https://starknet-mainnet.public.blastapi.io"
+  MAX_FEE_GWEI: 4000000
+  FEE_TOKEN: "STRK"
+  CHAIN: "MAIN"
+
+  MNEMONIC_FILE: "./wallet.txt"
+  AUTHORIZATION_TIMEOUT: 60
 
 #Bitcoin RPC
 BITCOIND:
@@ -25,10 +38,8 @@ LND:
   MACAROON_FILE: "~/.lnd/data/chain/bitcoin/mainnet/admin.macaroon"
   HOST: "127.0.0.1"
   PORT: 10009
-#  MNEMONIC_FILE: "./wallet.txt"
-#  WALLET_PASSWORD_FILE: "./password.txt"
-#  CERT_FILE: "~/.lnd/tls.cert"
-#  MACAROON_FILE: "~/.lnd/data/chain/bitcoin/mainnet/admin.macaroon"
+  MNEMONIC_FILE: "./wallet.txt"
+  WALLET_PASSWORD_FILE: "./password.txt"
 
 #LN setup
 LN:
@@ -49,11 +60,26 @@ ONCHAIN:
 
   NETWORK_FEE_ADD_PERCENTAGE: 25
 
+ONCHAIN_SPV:
+  MNEMONIC_FILE: "./wallet.txt"
+
+  BASE_FEE: 0.00000150
+  FEE_PERCENTAGE: 0.3
+  MIN: 0.00003000
+  MAX: 0.05000000
+
+  GAS_MAX:
+    STARKNET: 5
+    SOLANA: 0.05
+
 ASSETS:
   WBTC:
     chains:
       SOLANA:
         address: "3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh"
+        decimals: 8
+      STARKNET:
+        address: "0x03fe2b97c1fd336e750087d68b9b867997fd64a2661ff3ca5a7c771641e8e7ac"
         decimals: 8
     pricing: "WBTCBTC"
   USDC:
@@ -73,7 +99,24 @@ ASSETS:
       SOLANA:
         address: "So11111111111111111111111111111111111111112"
         decimals: 9
+        securityDepositAllowed: true
     pricing: "SOLBTC"
+  ETH:
+    chains:
+      STARKNET:
+        address: "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
+        decimals: 18
+        securityDepositAllowed: true
+        spvVaultMultiplier: 1000000000
+    pricing: "ETHBTC"
+  STRK:
+    chains:
+      STARKNET:
+        address: "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"
+        decimals: 18
+        securityDepositAllowed: true
+        spvVaultMultiplier: 1000000000
+    pricing: "STRKBTC"
 
 CLI:
   ADDRESS: "127.0.0.1"
@@ -83,11 +126,12 @@ REST:
   ADDRESS: "0.0.0.0"
   PORT: 4000
 
+SSL_AUTO:
+  HTTP_LISTEN_PORT: 80
+  DNS_PROXY: "nip.io"
+
 #SSL:
 #  CERT_FILE: "./server.cert"
 #  KEY_FILE: "./server.key"
 
-#SSL_AUTO:
-#  IP_ADDRESS_FILE: "./address.txt"
-#  HTTP_LISTEN_PORT: 80
-#  DNS_PROXY: "nip.io"
+#PLUGINS:

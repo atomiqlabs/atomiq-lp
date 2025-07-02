@@ -8,7 +8,7 @@ export class Registry {
         this.registryFile = registryFile;
     }
 
-    async register(testnet: boolean, url: string, mail?: string): Promise<string> {
+    async register(network: "mainnet" | "testnet" | "testnet4", url: string, mail?: string): Promise<string> {
         const prNumberTxt = await fs.readFile(this.registryFile).catch(e => null);
         if(prNumberTxt!=null) throw new Error("Already registered or waiting for registration!");
 
@@ -26,10 +26,10 @@ export class Registry {
                         ? "None"
                         : mail.replace(new RegExp("\@", 'g'), "(at)").replace(new RegExp("\\.", 'g'), "(dot)")
                 ),
-                "title": (testnet ? "[Testnet]" : "[Mainnet]")+" Add new LP node: "+url,
+                "title": "["+network+"] Add new LP node: "+url,
                 "commit": "Add new LP node URL",
                 "files": [
-                    {"path": (testnet ? "testnet/" : "mainnet/")+new URL(url).hostname+".txt", "content": url}
+                    {"path": network+"/"+new URL(url).hostname+".txt", "content": url}
                 ]
             })
         });

@@ -3,9 +3,9 @@ import {
     FromBtcLnSwapAbs,
     FromBtcLnSwapState,
     FromBtcSwapAbs,
-    FromBtcSwapState, IBitcoinWallet, ILightningWallet,
+    FromBtcSwapState, IBitcoinWallet, ILightningWallet, ISpvVaultSigner,
     ISwapPrice, MultichainData,
-    PluginManager,
+    PluginManager, SpvVault, SpvVaultState,
     SwapHandlerType,
     ToBtcLnSwapAbs,
     ToBtcLnSwapState,
@@ -21,9 +21,16 @@ import {
     createCommand
 } from "@atomiqlabs/server-base";
 import {fromDecimal, toDecimal} from "../Utils";
-import {IntermediaryConfig} from "../IntermediaryConfig";
+import {allowedChains, IntermediaryConfig} from "../IntermediaryConfig";
 import {Registry} from "../Registry";
 import * as bolt11 from "@atomiqlabs/bolt11";
+import {bigIntSorter} from "@atomiqlabs/lp-lib/dist/utils/Utils";
+
+function sortVaults(vaults: SpvVault[]) {
+    vaults.sort(
+        (a, b) => bigIntSorter(a.data.getVaultId(), b.data.getVaultId())
+    );
+}
 
 export class IntermediaryRunnerWrapper extends IntermediaryRunner {
 
@@ -69,9 +76,10 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
         prices: ISwapPrice<any>,
         bitcoinRpc: BitcoinRpc<any>,
         bitcoinWallet: IBitcoinWallet,
-        lightningWallet: ILightningWallet
+        lightningWallet: ILightningWallet,
+        spvVaultSigner: ISpvVaultSigner
     ) {
-        super(directory, multichainData, tokens, prices, bitcoinRpc, bitcoinWallet, lightningWallet);
+        super(directory, multichainData, tokens, prices, bitcoinRpc, bitcoinWallet, lightningWallet, spvVaultSigner);
         this.lpRegistry = new Registry(directory+"/lpRegistration.txt");
         this.addressesToTokens = {};
         const tokenTickers = [];
@@ -97,12 +105,12 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
 
                         reply.push("SmartChains status:");
                         for(let chainId in this.multichainData.chains) {
-                            const {swapContract, signer} = this.multichainData.chains[chainId];
-                            const nativeTokenAddress = swapContract.getNativeCurrencyAddress();
+                            const {chainInterface, signer} = this.multichainData.chains[chainId];
+                            const nativeTokenAddress = chainInterface.getNativeCurrencyAddress();
                             const {decimals, ticker} = this.addressesToTokens[chainId][nativeTokenAddress.toString()];
                             let nativeTokenBalance: bigint;
                             try {
-                                nativeTokenBalance = await swapContract.getBalance(signer.getAddress(), nativeTokenAddress, false);
+                                nativeTokenBalance = await chainInterface.getBalance(signer.getAddress(), nativeTokenAddress);
                             } catch (e) {
                                 console.error(e);
                             }
@@ -162,12 +170,13 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             reply.push(chainId+" address: "+signer.getAddress());
                         }
 
-                        if(!this.bitcoinWallet.isReady()) {
-                            reply.push("Bitcoin address: unknown (bitcoin wallet not ready)");
-                            return reply.join("\n");
+                        if(this.bitcoinWallet!=null) {
+                            if(!this.bitcoinWallet.isReady()) {
+                                reply.push("Bitcoin address: unknown (bitcoin wallet not ready)");
+                            } else {
+                                reply.push("Bitcoin address: "+await this.bitcoinWallet.getAddress());
+                            }
                         }
-
-                        reply.push("Bitcoin address: "+await this.bitcoinWallet.getAddress());
                         return reply.join("\n");
                     }
                 }
@@ -260,12 +269,12 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
 
                         const {chainId, ticker} = this.fromReadableToken(args.asset);
 
-                        const {swapContract, signer} = this.multichainData.chains[chainId];
+                        const {chainInterface, signer} = this.multichainData.chains[chainId];
                         const tokenData = this.tokens[ticker].chains[chainId];
                         const amtBN = fromDecimal(args.amount, tokenData.decimals);
 
-                        const txns = await swapContract.txsTransfer(signer.getAddress(), tokenData.address, amtBN, args.address);
-                        await swapContract.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
+                        const txns = await chainInterface.txsTransfer(signer.getAddress(), tokenData.address, amtBN, args.address);
+                        await chainInterface.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
                             sendLine("Transaction sent, signature: "+txId+" waiting for confirmation...");
                             return Promise.resolve();
                         });
@@ -292,13 +301,13 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                     parser: async (args, sendLine) => {
                         const {chainId, ticker} = this.fromReadableToken(args.asset);
 
-                        const {swapContract, signer} = this.multichainData.chains[chainId];
+                        const {chainInterface, swapContract, signer} = this.multichainData.chains[chainId];
                         const tokenData = this.tokens[ticker].chains[chainId];
 
                         const amtBN = fromDecimal(args.amount, tokenData.decimals);
 
                         const txns = await swapContract.txsDeposit(signer.getAddress(), tokenData.address, amtBN);
-                        await swapContract.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
+                        await chainInterface.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
                             sendLine("Transaction sent, signature: "+txId+" waiting for confirmation...");
                             return Promise.resolve();
                         });
@@ -325,13 +334,13 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                     parser: async (args, sendLine) => {
                         const {chainId, ticker} = this.fromReadableToken(args.asset);
 
-                        const {swapContract, signer} = this.multichainData.chains[chainId];
+                        const {chainInterface, swapContract, signer} = this.multichainData.chains[chainId];
                         const tokenData = this.tokens[ticker].chains[chainId];
                         console.log(typeof(args.amount), args.amount);
                         const amtBN = fromDecimal(args.amount, tokenData.decimals);
 
                         const txns = await swapContract.txsWithdraw(signer.getAddress(), tokenData.address, amtBN);
-                        await swapContract.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
+                        await chainInterface.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
                             sendLine("Transaction sent, signature: "+txId+" waiting for confirmation...");
                             return Promise.resolve();
                         });
@@ -422,7 +431,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             const {status, url} = await this.lpRegistry.getRegistrationStatus();
                             return "LP registration status: "+status+"\nGithub PR: "+url;
                         } else {
-                            const url = await this.lpRegistry.register(IntermediaryConfig.BITCOIND.NETWORK==="testnet", this.sslAutoUrl, args.mail==="" ? null : args.mail);
+                            const url = await this.lpRegistry.register(IntermediaryConfig.BITCOIND.NETWORK, this.sslAutoUrl, args.mail==="" ? null : args.mail);
                             return "LP registration request created: "+url;
                         }
                     }
@@ -578,6 +587,248 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                                 mtokens: amtBN==null ? undefined : amtBN * 1000n
                             });
                             return "Lightning network invoice: "+resp.request;
+                        }
+                    }
+                )
+            );
+        }
+
+        if(this.spvVaultSigner!=null) {
+            commands.push(
+                createCommand(
+                    "listvaults",
+                    "Lists created spv vaults",
+                    {
+                        args: {
+                            chainId: {
+                                base: true,
+                                description: "Chain ID to check spv vaults of",
+                                parser: cmdEnumParser<string>(allowedChains, true)
+                            },
+                            asset: {
+                                base: true,
+                                description: "Asset to check spv vaults of",
+                                parser: cmdStringParser(undefined, undefined, true)
+                            }
+                        },
+                        parser: async (args, sendLine) => {
+                            if(args.asset!=null && args.chainId==null) throw new Error("Chain ID needs to be specified when requesting specific asset");
+
+                            const vaults = await this.spvSwapHandler.Vaults.listVaults(
+                                args.chainId,
+                                args.asset==null ? null : this.tokens[args.asset].chains[args.chainId].address
+                            );
+
+                            const assortedVaults: {
+                                [chainId: string]: {
+                                    [ticker: string]: SpvVault[]
+                                }
+                            } = {};
+
+                            vaults.forEach(vault => {
+                                assortedVaults[vault.chainId] ??= {};
+                                const tokenData = this.addressesToTokens[vault.chainId][vault.data.getTokenData()[0].token];
+                                assortedVaults[vault.chainId][tokenData.ticker] ??= [];
+                                assortedVaults[vault.chainId][tokenData.ticker].push(vault);
+                            });
+
+                            for(let chainId in assortedVaults) {
+                                for(let ticker in assortedVaults[chainId]) {
+                                    sortVaults(assortedVaults[chainId][ticker]);
+                                }
+                            }
+
+                            const lines: string[] = [];
+                            for (let chainId in assortedVaults) {
+                                lines.push(chainId+":")
+                                for (let ticker in assortedVaults[chainId]) {
+                                    lines.push("    "+ticker+":");
+                                    const vaults = assortedVaults[chainId][ticker];
+                                    vaults.sort(
+                                        (a, b) => bigIntSorter(a.data.getVaultId(), b.data.getVaultId())
+                                    );
+                                    const tokenData = this.tokens[ticker].chains[chainId];
+                                    vaults.forEach((vault, index) => {
+                                        const gasTokenData = this.addressesToTokens[chainId][vault.balances[1].token];
+                                        lines.push("        Vault "+index+":");
+                                        lines.push("            State: "+SpvVaultState[vault.state]);
+                                        lines.push("            Vault ID: "+vault.data.getVaultId());
+                                        lines.push("            Balance: "+toDecimal(vault.balances[0].scaledAmount, tokenData.decimals)+" "+ticker);
+                                        lines.push("            Gas balance: "+toDecimal(vault.balances[1].scaledAmount, gasTokenData.decimals)+" "+gasTokenData.ticker);
+                                        lines.push("            Required confirmations: "+vault.data.getConfirmations());
+                                        lines.push("            Withdrawal count: "+vault.data.getWithdrawalCount());
+                                        lines.push("            Latest SC UTXO: "+vault.data.getUtxo());
+                                        lines.push("            Latest UTXO: "+vault.getLatestUtxo());
+                                        lines.push("            Pending withdrawals ("+vault.pendingWithdrawals.length+"):");
+                                        vault.pendingWithdrawals.forEach(withdrawal => {
+                                            const amounts = vault.fromRawAmounts(withdrawal.getTotalOutput());
+                                            lines.push("                "+withdrawal.getTxId()+":");
+                                            lines.push("                    Amount: "+toDecimal(amounts[0], tokenData.decimals)+" "+ticker);
+                                            lines.push("                    Gas amount: "+toDecimal(amounts[1], gasTokenData.decimals)+" "+gasTokenData.ticker);
+                                        });
+                                    });
+                                }
+                            }
+
+                            return lines.join("\n");
+                        }
+                    }
+                )
+            );
+            commands.push(
+                createCommand(
+                    "createvaults",
+                    "Creates new spv vaults",
+                    {
+                        args: {
+                            asset: {
+                                base: true,
+                                description: "Asset to create a vault for: "+tokenTickers.join(", "),
+                                parser: cmdEnumParser<string>(tokenTickers)
+                            },
+                            count: {
+                                base: true,
+                                description: "How many vaults to create",
+                                parser: cmdNumberParser(false, 1, 100, true)
+                            },
+                            feeRate: {
+                                base: false,
+                                description: "Fee rate: sats/vB for BTC transaction",
+                                parser: cmdNumberParser(false, 1, null, true)
+                            }
+                        },
+                        parser: async (args, sendLine) => {
+                            const {chainId, ticker} = this.fromReadableToken(args.asset);
+
+                            const count = args.count ?? 1;
+
+                            const tokenData = this.tokens[ticker].chains[chainId];
+                            const result= await this.spvSwapHandler.Vaults.createVaults(chainId, count, tokenData.address, undefined, args.feeRate);
+
+                            return "Created "+count+" new vaults, vaults will be opened as soon as the bitcoin transaction gets enough confirmations! Bitcoin txId: "+result.btcTxId;
+                        }
+                    }
+                )
+            );
+            commands.push(
+                createCommand(
+                    "depositvault",
+                    "Deposits funds to the specific spv vault",
+                    {
+                        args: {
+                            asset: {
+                                base: true,
+                                description: "Asset to fund the vault with: "+tokenTickers.join(", "),
+                                parser: cmdEnumParser<string>(tokenTickers)
+                            },
+                            vaultId: {
+                                base: true,
+                                description: "Vault ID to fund",
+                                parser: cmdNumberParser(false, 0, undefined, false)
+                            },
+                            amount: {
+                                base: true,
+                                description: "Amount of the token to deposit",
+                                parser: cmdStringParser(1)
+                            },
+                            gasAmount: {
+                                base: true,
+                                description: "Amount of the gas token to deposit",
+                                parser: cmdStringParser(1, undefined, true)
+                            }
+                        },
+                        parser: async (args, sendLine) => {
+                            const {chainId, ticker} = this.fromReadableToken(args.asset);
+                            const tokenData = this.tokens[ticker].chains[chainId];
+                            const amountToken0 = fromDecimal(args.amount, tokenData.decimals);
+
+                            const vaults = await this.spvSwapHandler.Vaults.listVaults(chainId, tokenData.address);
+                            sortVaults(vaults);
+
+                            const vault: SpvVault = vaults[args.vaultId];
+                            if(vault==null) throw new Error("Vault with id "+args.vaultId+" not found!");
+                            if(!vault.data.isOpened()) throw new Error("Vault is not opened yet!");
+
+                            const gasTokenData = this.addressesToTokens[chainId][vault.balances[1].token];
+                            let amountToken1: bigint = 0n;
+                            if(args.gasAmount!=null) {
+                                amountToken1 = fromDecimal(args.gasAmount, gasTokenData.decimals);
+                            }
+
+                            const rawAmounts = vault.toRawAmounts([amountToken0, amountToken1]);
+                            const adjustedAmounts = vault.fromRawAmounts(rawAmounts);
+                            sendLine("Amounts scaled and adjusted, depositing: "+
+                                toDecimal(adjustedAmounts[0], tokenData.decimals)+" "+ticker+" & "+
+                                toDecimal(adjustedAmounts[1], gasTokenData.decimals)+" "+gasTokenData.ticker);
+
+                            const result = await this.spvSwapHandler.Vaults.fundVault(vault, rawAmounts);
+
+                            return "Funds deposited! Transaction ID: "+result;
+                        }
+                    }
+                )
+            );
+
+            commands.push(
+                createCommand(
+                    "withdrawvault",
+                    "Withdraw funds from the specific spv vault",
+                    {
+                        args: {
+                            asset: {
+                                base: true,
+                                description: "Asset to fund the vault with: "+tokenTickers.join(", "),
+                                parser: cmdEnumParser<string>(tokenTickers)
+                            },
+                            vaultId: {
+                                base: true,
+                                description: "Vault ID to fund",
+                                parser: cmdNumberParser(false, 0, undefined, false)
+                            },
+                            amount: {
+                                base: true,
+                                description: "Amount of the token to withdraw",
+                                parser: cmdStringParser(1)
+                            },
+                            gasAmount: {
+                                base: true,
+                                description: "Amount of the gas token to withdraw",
+                                parser: cmdStringParser(1, undefined, true)
+                            },
+                            feeRate: {
+                                base: false,
+                                description: "Fee rate: sats/vB for BTC transaction",
+                                parser: cmdNumberParser(false, 1, null, true)
+                            }
+                        },
+                        parser: async (args, sendLine) => {
+                            const {chainId, ticker} = this.fromReadableToken(args.asset);
+                            const tokenData = this.tokens[ticker].chains[chainId];
+                            const amountToken0 = fromDecimal(args.amount, tokenData.decimals);
+
+                            const vaults = await this.spvSwapHandler.Vaults.listVaults(chainId, tokenData.address);
+                            sortVaults(vaults);
+
+                            const vault: SpvVault = vaults[args.vaultId];
+                            if(vault==null) throw new Error("Vault with id "+args.vaultId+" not found!");
+                            if(!vault.data.isOpened()) throw new Error("Vault is not opened yet!");
+
+                            const gasTokenData = this.addressesToTokens[chainId][vault.balances[1].token];
+                            let amountToken1: bigint = 0n;
+                            if(args.gasAmount!=null) {
+                                amountToken1 = fromDecimal(args.gasAmount, gasTokenData.decimals);
+                            }
+
+                            const rawAmounts = vault.toRawAmounts([amountToken0, amountToken1]);
+                            const adjustedAmounts = vault.fromRawAmounts(rawAmounts);
+                            sendLine("Amounts scaled and adjusted, withdrawing: "+
+                                toDecimal(adjustedAmounts[0], tokenData.decimals)+" "+ticker+" & "+
+                                toDecimal(adjustedAmounts[1], gasTokenData.decimals)+" "+gasTokenData.ticker);
+
+                            const result = await this.spvSwapHandler.Vaults.withdrawFromVault(vault, rawAmounts, args.feeRate);
+
+                            return "Funds withdrawal initiated, funds will be automatically claimed when bitcoin transaction gets "+
+                                vault.data.getConfirmations()+" confirmations! Bitcoin transaction ID: "+result;
                         }
                     }
                 )
