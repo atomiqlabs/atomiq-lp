@@ -49,7 +49,12 @@ const template = {
     STATIC_TIP: bigIntParser(0n, null, true),
     HELIUS_FEE_LEVEL: enumParser(["min", "low", "medium", "high", "veryHigh", "unsafeMax"], true),
 
-    AUTHORIZATION_TIMEOUT: numberParser(false, 10, 3600, true)
+    AUTHORIZATION_TIMEOUT: numberParser(false, 10, 3600, true),
+
+    CONTRACTS: objectParser({
+        BTC_RELAY: publicKeyParser(true),
+        ESCROW: publicKeyParser(true),
+    }, null, true)
 };
 
 export const SolanaChainInitializer: ChainInitializer<SolanaChainType, any, typeof template> = {
@@ -74,13 +79,16 @@ export const SolanaChainInitializer: ChainInitializer<SolanaChainType, any, type
 
         const chainInterface = new SolanaChainInterface(AnchorSigner.connection, undefined, solanaFees);
 
-        const btcRelay = new SolanaBtcRelay(chainInterface, bitcoinRpc, process.env.BTC_RELAY_CONTRACT_ADDRESS);
-
+        const btcRelay = new SolanaBtcRelay(
+            chainInterface,
+            bitcoinRpc,
+            configuration.CONTRACTS?.BTC_RELAY?.toString()
+        );
         const swapContract = new SolanaSwapProgram(
             chainInterface,
             btcRelay,
             new StorageManager<StoredDataAccount>(directory+"/solaccounts"),
-            process.env.SWAP_CONTRACT_ADDRESS
+            configuration.CONTRACTS?.ESCROW?.toString()
         );
 
         const chainEvents = new SolanaChainEvents(directory, AnchorSigner.connection, swapContract);
