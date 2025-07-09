@@ -16,6 +16,7 @@ import {
 import {getStarknetSigner} from "./signer/StarknetSigner";
 import {constants} from "starknet";
 import {StarknetChainEvents} from "@atomiqlabs/chain-starknet/dist/starknet/events/StarknetChainEvents";
+import {ChainSwapType} from "@atomiqlabs/base";
 
 const template = {
     RPC_URL: stringParser(),
@@ -27,7 +28,20 @@ const template = {
     MNEMONIC_FILE: stringParser(null, null, true),
     PRIVKEY: stringParser(66, 66, true),
 
-    AUTHORIZATION_TIMEOUT: numberParser(false, 10, 3600, true)
+    AUTHORIZATION_TIMEOUT: numberParser(false, 10, 3600, true),
+
+    CONTRACTS: objectParser({
+        BTC_RELAY: stringParser(66, 66, true),
+        ESCROW: stringParser(66, 66, true),
+        SPV_VAULT: stringParser(66, 66, true),
+
+        TIMELOCK_REFUND_HANDLER: stringParser(66, 66, true),
+
+        HASHLOCK_CLAIM_HANDLER: stringParser(66, 66, true),
+        BTC_TXID_CLAIM_HANDLER: stringParser(66, 66, true),
+        BTC_OUTPUT_CLAIM_HANDLER: stringParser(66, 66, true),
+        BTC_NONCED_OUTPUT_CLAIM_HANDLER: stringParser(66, 66, true),
+    }, null, true)
 };
 
 export const StarknetChainInitializer: ChainInitializer<StarknetChainType, any, typeof template> = {
@@ -48,15 +62,26 @@ export const StarknetChainInitializer: ChainInitializer<StarknetChainType, any, 
         const chainInterface = new StarknetChainInterface(chainId, provider, undefined, starknetFees);
 
         const btcRelay = new StarknetBtcRelay(
-            chainInterface, bitcoinRpc, bitcoinNetwork
+            chainInterface, bitcoinRpc, bitcoinNetwork, configuration.CONTRACTS?.BTC_RELAY
         );
 
         const swapContract = new StarknetSwapContract(
-            chainInterface, btcRelay
+            chainInterface, btcRelay, configuration.CONTRACTS?.ESCROW,
+            {
+                refund: {
+                    timelock: configuration.CONTRACTS?.TIMELOCK_REFUND_HANDLER
+                },
+                claim: {
+                    [ChainSwapType.HTLC]: configuration.CONTRACTS?.HASHLOCK_CLAIM_HANDLER,
+                    [ChainSwapType.CHAIN_TXID]: configuration.CONTRACTS?.BTC_TXID_CLAIM_HANDLER,
+                    [ChainSwapType.CHAIN]: configuration.CONTRACTS?.BTC_OUTPUT_CLAIM_HANDLER,
+                    [ChainSwapType.CHAIN_NONCED]: configuration.CONTRACTS?.BTC_NONCED_OUTPUT_CLAIM_HANDLER
+                }
+            }
         );
 
         const spvVaultContract = new StarknetSpvVaultContract(
-            chainInterface, btcRelay, bitcoinRpc
+            chainInterface, btcRelay, bitcoinRpc, configuration.CONTRACTS?.SPV_VAULT
         );
 
         const chainEvents = new StarknetChainEvents(directory, chainInterface, swapContract, spvVaultContract);
