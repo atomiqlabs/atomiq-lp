@@ -337,6 +337,14 @@ export class IntermediaryRunner extends EventEmitter {
                 }
             );
             removeAllowedAssets(frombtcln, IntermediaryConfig.LN.EXCLUDE_ASSETS);
+
+            const gasTokenMax = {};
+            for(let chainId in IntermediaryConfig.LN.GAS_MAX) {
+                if(IntermediaryConfig.LN.GAS_MAX[chainId]==null) continue;
+                const tokenData = this.prices.getTokenData(this.multichainData.chains[chainId].chainInterface.getNativeCurrencyAddress(), chainId);
+                gasTokenMax[chainId] = fromDecimal(IntermediaryConfig.LN.GAS_MAX[chainId].toFixed(tokenData.decimals), tokenData.decimals);
+            }
+
             this.swapHandlers.push(frombtcln);
             const frombtclnAuto = new FromBtcLnAuto(
                 new IntermediaryStorageManager(this.directory+"/frombtcln_auto"),
@@ -351,7 +359,8 @@ export class IntermediaryRunner extends EventEmitter {
                     minCltv: 20n,
 
                     swapCheckInterval: 1*60*1000,
-                    invoiceTimeoutSeconds: IntermediaryConfig.LN.INVOICE_EXPIRY_SECONDS
+                    invoiceTimeoutSeconds: IntermediaryConfig.LN.INVOICE_EXPIRY_SECONDS,
+                    gasTokenMax
                 }
             );
             removeAllowedAssets(frombtclnAuto, IntermediaryConfig.LN.EXCLUDE_ASSETS);
