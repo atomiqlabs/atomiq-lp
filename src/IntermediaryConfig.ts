@@ -64,7 +64,12 @@ const IntermediaryConfigTemplate = {
         ALLOW_LN_SHORT_EXPIRY: booleanParser(),
 
         INVOICE_EXPIRY_SECONDS: numberParser(false, 0, 3600, true),
-        EXCLUDE_ASSETS: arrayParser(stringParser(), true)
+        EXCLUDE_ASSETS: arrayParser(stringParser(), true),
+
+        GAS_MAX: dictionaryParserWithKeys(
+            numberParser(true, 0, undefined, true),
+            allowedChains
+        )
     }, null, true),
 
     ONCHAIN: objectParser({
