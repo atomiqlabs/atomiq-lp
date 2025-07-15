@@ -20,7 +20,7 @@ import {
     ToBtcAbs,
     ToBtcLnAbs,
     IBitcoinWallet,
-    ILightningWallet, ISpvVaultSigner, SpvVaultSwapHandler, StorageManager
+    ILightningWallet, ISpvVaultSigner, SpvVaultSwapHandler, StorageManager, FromBtcLnAuto
 } from "@atomiqlabs/lp-lib";
 import {BitcoinRpc, BtcSyncInfo} from "@atomiqlabs/base";
 import http2Express from "http2-express-bridge";
@@ -338,6 +338,24 @@ export class IntermediaryRunner extends EventEmitter {
             );
             removeAllowedAssets(frombtcln, IntermediaryConfig.LN.EXCLUDE_ASSETS);
             this.swapHandlers.push(frombtcln);
+            const frombtclnAuto = new FromBtcLnAuto(
+                new IntermediaryStorageManager(this.directory+"/frombtcln_auto"),
+                "/frombtcln_auto",
+                this.multichainData,
+                this.lightningWallet,
+                this.prices,
+                {
+                    ...globalConfig,
+                    ...swapConfig,
+
+                    minCltv: 20n,
+
+                    swapCheckInterval: 1*60*1000,
+                    invoiceTimeoutSeconds: IntermediaryConfig.LN.INVOICE_EXPIRY_SECONDS
+                }
+            );
+            removeAllowedAssets(frombtclnAuto, IntermediaryConfig.LN.EXCLUDE_ASSETS);
+            this.swapHandlers.push(frombtclnAuto);
         }
         if(IntermediaryConfig.ONCHAIN_TRUSTED!=null) {
             this.swapHandlers.push(
