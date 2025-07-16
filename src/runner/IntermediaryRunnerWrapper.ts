@@ -1,11 +1,20 @@
 import {BitcoinRpc, ChainSwapType} from "@atomiqlabs/base";
 import {
+    FromBtcLnAutoSwap, FromBtcLnAutoSwapState,
     FromBtcLnSwapAbs,
     FromBtcLnSwapState,
     FromBtcSwapAbs,
-    FromBtcSwapState, IBitcoinWallet, ILightningWallet, ISpvVaultSigner,
-    ISwapPrice, MultichainData,
-    PluginManager, SpvVault, SpvVaultState,
+    FromBtcSwapState,
+    IBitcoinWallet,
+    ILightningWallet,
+    ISpvVaultSigner,
+    ISwapPrice,
+    MultichainData,
+    PluginManager,
+    SpvVault,
+    SpvVaultState,
+    SpvVaultSwap,
+    SpvVaultSwapState,
     SwapHandlerType,
     ToBtcLnSwapAbs,
     ToBtcLnSwapState,
@@ -13,13 +22,7 @@ import {
     ToBtcSwapState
 } from "@atomiqlabs/lp-lib";
 import {IntermediaryRunner} from "./IntermediaryRunner";
-import {
-    cmdEnumParser,
-    cmdNumberParser,
-    cmdStringParser,
-    CommandHandler,
-    createCommand
-} from "@atomiqlabs/server-base";
+import {cmdEnumParser, cmdNumberParser, cmdStringParser, CommandHandler, createCommand} from "@atomiqlabs/server-base";
 import {fromDecimal, toDecimal} from "../Utils";
 import {allowedChains, IntermediaryConfig} from "../IntermediaryConfig";
 import {Registry} from "../Registry";
@@ -508,6 +511,23 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                                     ];
                                     swapData.push(lines.join("\n"));
                                 }
+                                if(_swap.type===SwapHandlerType.FROM_BTC_SPV) {
+                                    const swap = _swap as SpvVaultSwap;
+                                    const gasTokenData = this.addressesToTokens[swap.chainIdentifier][swap.getGasToken().toString()];
+                                    if(args.quotes!==1 && swap.state===SpvVaultSwapState.CREATED) continue;
+                                    const lines = [
+                                        toDecimal(swap.amountBtc, 8)+" BTC -> "+toDecimal(swap.getOutputAmount(), tokenData.decimals)+" "+tokenData.ticker,
+                                        "Bitcoin transaction id: "+swap.btcTxId,
+                                        "Spv vault ID: "+swap.vaultId.toString(10),
+                                        "State: "+SpvVaultSwapState[swap.state],
+                                        "Fee: "+toDecimal(swap.getSwapFee().inInputToken, 8)+" BTC",
+                                        "Swap fee: "+toDecimal(swap.getTokenSwapFee().inInputToken, 8)+" BTC",
+                                        "Gas swap fee: "+toDecimal(swap.getGasSwapFee().inInputToken, 8)+" BTC",
+                                        "Gas drop: "+toDecimal(swap.getOutputGasAmount(), gasTokenData.decimals)+" "+gasTokenData.ticker,
+                                        "Receiving address: "+swap.recipient
+                                    ];
+                                    swapData.push(lines.join("\n"));
+                                }
                                 if(_swap.type===SwapHandlerType.FROM_BTCLN) {
                                     const swap = _swap as FromBtcLnSwapAbs;
                                     if(args.quotes!==1 && swap.state===FromBtcLnSwapState.CREATED) continue;
@@ -520,6 +540,24 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                                         "Claim hash: "+_swap.getClaimHash(),
                                         "State: "+FromBtcLnSwapState[swap.state],
                                         "Swap fee: "+toDecimal(swap.swapFee, 8)+" BTC-LN",
+                                        "Receiving invoice: "+swap.pr
+                                    ];
+                                    swapData.push(lines.join("\n"));
+                                }
+                                if(_swap.type===SwapHandlerType.FROM_BTCLN_AUTO) {
+                                    const swap = _swap as FromBtcLnAutoSwap;
+                                    const gasTokenData = this.addressesToTokens[swap.chainIdentifier][swap.getGasToken().toString()];
+                                    if(args.quotes!==1 && swap.state===FromBtcLnAutoSwapState.CREATED) continue;
+                                    const lines = [
+                                        toDecimal(swap.amount, 8)+" BTC-LN -> "+toDecimal(swap.getTotalOutputAmount(), tokenData.decimals)+" "+tokenData.ticker,
+                                        "Identifier hash: "+swap.getIdentifierHash(),
+                                        "Escrow hash: "+swap.getEscrowHash(),
+                                        "Claim hash: "+swap.getClaimHash(),
+                                        "State: "+FromBtcLnAutoSwapState[swap.state],
+                                        "Fee: "+toDecimal(swap.getSwapFee().inInputToken, 8)+" BTC-LN",
+                                        "Swap fee: "+toDecimal(swap.getTokenSwapFee().inInputToken, 8)+" BTC-LN",
+                                        "Gas swap fee: "+toDecimal(swap.getGasSwapFee().inInputToken, 8)+" BTC-LN",
+                                        "Gas drop & claimer bounty: "+toDecimal(swap.getTotalOutputGasAmount(), gasTokenData.decimals)+" "+gasTokenData.ticker,
                                         "Receiving invoice: "+swap.pr
                                     ];
                                     swapData.push(lines.join("\n"));
