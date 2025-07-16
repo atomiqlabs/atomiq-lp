@@ -1,11 +1,21 @@
 import {BitcoinRpc, ChainSwapType} from "@atomiqlabs/base";
 import {
+    FromBtcLnAutoSwap,
+    FromBtcLnAutoSwapState,
     FromBtcLnSwapAbs,
     FromBtcLnSwapState,
     FromBtcSwapAbs,
-    FromBtcSwapState, IBitcoinWallet, ILightningWallet, ISpvVaultSigner,
-    ISwapPrice, MultichainData,
-    PluginManager, SpvVault, SpvVaultState, SpvVaultSwap, SpvVaultSwapState,
+    FromBtcSwapState,
+    IBitcoinWallet,
+    ILightningWallet,
+    ISpvVaultSigner,
+    ISwapPrice,
+    MultichainData,
+    PluginManager,
+    SpvVault,
+    SpvVaultState,
+    SpvVaultSwap,
+    SpvVaultSwapState,
     SwapHandlerType,
     ToBtcLnSwapAbs,
     ToBtcLnSwapState,
@@ -123,7 +133,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             const btcRpcStatus = await this.bitcoinRpc.getSyncInfo().catch(e => null);
                             bitcoinRpc = {
                                 status: btcRpcStatus == null ? "offline" : btcRpcStatus.ibd ? "verifying blockchain" : "ready",
-                                verificationProgress: btcRpcStatus?.verificationProgress ? 
+                                verificationProgress: btcRpcStatus?.verificationProgress ?
                                     (btcRpcStatus.verificationProgress * 100).toFixed(4) + "%" : null,
                                 syncedHeaders: btcRpcStatus?.headers || null,
                                 syncedBlocks: btcRpcStatus?.blocks || null
@@ -176,7 +186,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                                 addresses.bitcoin = await this.bitcoinWallet.getAddress();
                             }
                         }
-                        
+
                         return { addresses };
                     }
                 }
@@ -404,10 +414,10 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                                     reputation[chainId][ticker] = null;
                                     continue;
                                 }
-                                
+
                                 const lnData = reputationData[ChainSwapType.HTLC];
                                 const onChainData = reputationData[ChainSwapType.CHAIN_NONCED];
-                                
+
                                 reputation[chainId][ticker] = {
                                     lightning: {
                                         successes: {
@@ -630,6 +640,29 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                                         claimHash: _swap.getClaimHash(),
                                         state: FromBtcLnSwapState[swap.state],
                                         swapFee: toDecimal(swap.swapFee, 8),
+                                        invoice: swap.pr
+                                    };
+                                    swaps.push(swapInfo);
+                                }
+                                if(_swap.type===SwapHandlerType.FROM_BTCLN_AUTO) {
+                                    const swap = _swap as FromBtcLnAutoSwap;
+                                    const gasTokenData = this.addressesToTokens[swap.chainIdentifier][swap.getGasToken().toString()];
+                                    if(args.quotes!==1 && swap.state===FromBtcLnAutoSwapState.CREATED) continue;
+                                    const swapInfo: any = {
+                                        type: "FROM_BTCLN_AUTO",
+                                        fromAmount: toDecimal(swap.amount, 8),
+                                        fromToken: "BTC-LN",
+                                        toAmount: toDecimal(swap.getTotalOutputAmount(), tokenData.decimals),
+                                        toToken: tokenData.ticker,
+                                        toGasAmount: toDecimal(swap.getTotalOutputGasAmount(), gasTokenData.decimals),
+                                        toGasToken: gasTokenData.ticker,
+                                        identifierHash: swap.getIdentifierHash(),
+                                        escrowHash: swap.getEscrowHash(),
+                                        claimHash: swap.getClaimHash(),
+                                        state: FromBtcLnAutoSwapState[swap.state],
+                                        totalFee: toDecimal(swap.getSwapFee().inInputToken, 8),
+                                        swapFee: toDecimal(swap.getTokenSwapFee().inInputToken, 8),
+                                        gasSwapFee: toDecimal(swap.getGasSwapFee().inInputToken, 8),
                                         invoice: swap.pr
                                     };
                                     swaps.push(swapInfo);
