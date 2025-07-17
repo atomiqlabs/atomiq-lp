@@ -31,16 +31,16 @@ const template = {
     AUTHORIZATION_TIMEOUT: numberParser(false, 10, 3600, true),
 
     CONTRACTS: objectParser({
-        BTC_RELAY: stringParser(66, 66, true),
-        ESCROW: stringParser(66, 66, true),
-        SPV_VAULT: stringParser(66, 66, true),
+        BTC_RELAY: stringParser(3, 66, true),
+        ESCROW: stringParser(3, 66, true),
+        SPV_VAULT: stringParser(3, 66, true),
 
-        TIMELOCK_REFUND_HANDLER: stringParser(66, 66, true),
+        TIMELOCK_REFUND_HANDLER: stringParser(3, 66, true),
 
-        HASHLOCK_CLAIM_HANDLER: stringParser(66, 66, true),
-        BTC_TXID_CLAIM_HANDLER: stringParser(66, 66, true),
-        BTC_OUTPUT_CLAIM_HANDLER: stringParser(66, 66, true),
-        BTC_NONCED_OUTPUT_CLAIM_HANDLER: stringParser(66, 66, true),
+        HASHLOCK_CLAIM_HANDLER: stringParser(3, 66, true),
+        BTC_TXID_CLAIM_HANDLER: stringParser(3, 66, true),
+        BTC_OUTPUT_CLAIM_HANDLER: stringParser(3, 66, true),
+        BTC_NONCED_OUTPUT_CLAIM_HANDLER: stringParser(3, 66, true),
     }, null, true)
 };
 
