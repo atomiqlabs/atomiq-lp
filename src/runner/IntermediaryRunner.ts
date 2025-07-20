@@ -435,11 +435,11 @@ export class IntermediaryRunner extends EventEmitter {
             } catch (e) {}
 
             const ipWithDashes = address.replace(new RegExp("\\.", 'g'), "-");
-            const dns = ipWithDashes+"."+IntermediaryConfig.SSL_AUTO.DNS_PROXY;
-            console.log("[Main]: Domain name: "+dns);
-            const acme = new LetsEncryptACME(dns, dir+"/key.pem", dir+"/cert.pem", IntermediaryConfig.SSL_AUTO.HTTP_LISTEN_PORT);
+            const dnsNames = IntermediaryConfig.SSL_AUTO.DNS_PROXY.split(",").map(domain => ipWithDashes+"."+domain);
+            console.log("[Main]: Domain name: "+dnsNames.join(", "));
+            const acme = new LetsEncryptACME(dnsNames, dir+"/key.pem", dir+"/cert.pem", IntermediaryConfig.SSL_AUTO.HTTP_LISTEN_PORT);
 
-            const url = "https://"+dns+":"+listenPort;
+            const url = "https://"+dnsNames[0]+":"+listenPort;
             this.sslAutoUrl = url;
             await fs.writeFile(this.directory+"/url.txt", url);
 

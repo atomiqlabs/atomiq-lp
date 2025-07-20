@@ -5,7 +5,7 @@ import {X509Certificate} from "node:crypto";
 
 export class LetsEncryptACME {
 
-    readonly hostname: string;
+    readonly hostnames: string[];
     readonly keyFile: string;
     readonly certFile: string;
     readonly listenPort: number;
@@ -14,8 +14,8 @@ export class LetsEncryptACME {
     renewCallback: (key: Buffer, cert: Buffer) => void;
     client: Client;
 
-    constructor(hostname: string, keyFile: string, certFile: string, listenPort: number = 80, renewBuffer: number = 14*24*60*60*1000) {
-        this.hostname = hostname;
+    constructor(hostnames: string[], keyFile: string, certFile: string, listenPort: number = 80, renewBuffer: number = 14*24*60*60*1000) {
+        this.hostnames = hostnames;
         this.keyFile = keyFile;
         this.certFile = certFile;
         this.listenPort = listenPort;
@@ -68,7 +68,8 @@ export class LetsEncryptACME {
         if(existingKey==null) console.log("[ACME]: Creating new CSR key!");
 
         const [key, csr] = await crypto.createCsr({
-            commonName: this.hostname
+            commonName: this.hostnames[0],
+            altNames: this.hostnames.slice(1)
         }, existingKey);
 
         let httpServer: Server;
