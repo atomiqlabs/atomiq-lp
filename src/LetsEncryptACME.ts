@@ -73,6 +73,8 @@ export class LetsEncryptACME {
         }, existingKey);
 
         let httpServer: Server;
+        let httpServerCreatePromise: Promise<void>;
+        const challenges: {[challengeToken: string]: string} = {};
 
         if(existingKey==null) console.log("[ACME]: Requesting certificate!");
 
@@ -81,13 +83,16 @@ export class LetsEncryptACME {
             // email: 'test@example.com',
             termsOfServiceAgreed: true,
             challengePriority: ['http-01'],
-            challengeCreateFn: (authz, challenge, keyAuthorization) => {
+            challengeCreateFn: (authz, _challenge, _keyAuthorization) => {
+                challenges[_challenge.token] = _keyAuthorization;
+                if(httpServerCreatePromise!=null) return httpServerCreatePromise;
                 httpServer = createServer((req, res) => {
                     if (req.url.match(/\/\.well-known\/acme-challenge\/.+/)) {
                         const token = req.url.split('/').pop();
                         console.log(`[ACME]: Received challenge request for token=${token}`);
 
-                        if(token!==challenge.token) {
+                        const keyAuthorization = challenges[token];
+                        if(keyAuthorization==null) {
                             res.writeHead(404);
                             res.end();
                             return;
@@ -103,13 +108,14 @@ export class LetsEncryptACME {
                     res.end();
                 });
 
-                return new Promise<void>((resolve, reject) => {
+                return httpServerCreatePromise = new Promise<void>((resolve, reject) => {
                     httpServer.on("error", e => reject(e));
                     httpServer.listen(this.listenPort, resolve);
-                })
+                });
             },
             challengeRemoveFn: (authz, challenge) => {
-                if(httpServer==null) return Promise.resolve();
+                delete challenges[challenge.token];
+                if(Object.keys(challenges).length!==0) return Promise.resolve();
                 return new Promise<void>((resolve, reject) => httpServer.close(err => err==null ? resolve() : reject(err)));
             }
         });
