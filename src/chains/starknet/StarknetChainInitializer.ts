@@ -65,18 +65,20 @@ export const StarknetChainInitializer: ChainInitializer<StarknetChainType, any, 
             chainInterface, bitcoinRpc, bitcoinNetwork, configuration.CONTRACTS?.BTC_RELAY
         );
 
+        const claimHandlers = {};
+        if(configuration.CONTRACTS?.HASHLOCK_CLAIM_HANDLER!=null) claimHandlers[ChainSwapType.HTLC] = configuration.CONTRACTS?.HASHLOCK_CLAIM_HANDLER;
+        if(configuration.CONTRACTS?.BTC_TXID_CLAIM_HANDLER!=null) claimHandlers[ChainSwapType.CHAIN_TXID] = configuration.CONTRACTS?.BTC_TXID_CLAIM_HANDLER;
+        if(configuration.CONTRACTS?.BTC_OUTPUT_CLAIM_HANDLER!=null) claimHandlers[ChainSwapType.CHAIN] = configuration.CONTRACTS?.BTC_OUTPUT_CLAIM_HANDLER;
+        if(configuration.CONTRACTS?.BTC_NONCED_OUTPUT_CLAIM_HANDLER!=null) claimHandlers[ChainSwapType.CHAIN_NONCED] = configuration.CONTRACTS?.BTC_NONCED_OUTPUT_CLAIM_HANDLER;
+
+        const refundHandlers: {timelock?: string} = {};
+        if(configuration.CONTRACTS?.TIMELOCK_REFUND_HANDLER!=null) refundHandlers.timelock = configuration.CONTRACTS.TIMELOCK_REFUND_HANDLER
+
         const swapContract = new StarknetSwapContract(
             chainInterface, btcRelay, configuration.CONTRACTS?.ESCROW,
             {
-                refund: {
-                    timelock: configuration.CONTRACTS?.TIMELOCK_REFUND_HANDLER
-                },
-                claim: {
-                    [ChainSwapType.HTLC]: configuration.CONTRACTS?.HASHLOCK_CLAIM_HANDLER,
-                    [ChainSwapType.CHAIN_TXID]: configuration.CONTRACTS?.BTC_TXID_CLAIM_HANDLER,
-                    [ChainSwapType.CHAIN]: configuration.CONTRACTS?.BTC_OUTPUT_CLAIM_HANDLER,
-                    [ChainSwapType.CHAIN_NONCED]: configuration.CONTRACTS?.BTC_NONCED_OUTPUT_CLAIM_HANDLER
-                }
+                refund: refundHandlers,
+                claim: claimHandlers
             }
         );
 
