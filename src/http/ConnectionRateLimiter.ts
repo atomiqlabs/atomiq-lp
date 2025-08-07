@@ -10,11 +10,6 @@ export function createConnectionRateLimiter(maxConnections?: number): (req: Requ
         let connectionCount = (ipStore.get(ip) ?? 0) + 1;
         ipStore.set(ip,  connectionCount);
 
-        if (connectionCount > maxConnections) {
-            res.status(503).send('Too many open connections');
-            return;
-        }
-
         res.on('finish', () => {
             let connectionCount = (ipStore.get(ip) ?? 1) - 1;
             if(connectionCount===0) {
@@ -23,6 +18,11 @@ export function createConnectionRateLimiter(maxConnections?: number): (req: Requ
                 ipStore.set(ip, connectionCount);
             }
         });
+
+        if (connectionCount > maxConnections) {
+            res.status(503).send('Too many open connections');
+            return;
+        }
 
         next();
     };
