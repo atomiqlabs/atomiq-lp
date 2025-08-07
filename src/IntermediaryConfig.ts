@@ -143,7 +143,15 @@ const IntermediaryConfigTemplate = {
 
     REST: objectParser({
         ADDRESS: stringParser(),
-        PORT: numberParser(false, 0, 65535)
+        PORT: numberParser(false, 0, 65535),
+
+        REQUEST_LIMIT: objectParser({
+            LIMIT: numberParser(false, 0),
+            WINDOW_MS: numberParser(false, 0)
+        }, undefined, true),
+
+        CONNECTION_LIMIT: numberParser(false, 0, undefined, true),
+        CONNECTION_TIMEOUT_MS: numberParser(false, 0, undefined, true)
     }),
 
     SSL: objectParser({

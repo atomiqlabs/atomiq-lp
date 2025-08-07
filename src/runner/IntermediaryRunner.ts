@@ -30,6 +30,9 @@ import {LetsEncryptACME} from "../LetsEncryptACME";
 import * as tls from "node:tls";
 import {EventEmitter} from "node:events";
 import {fromDecimal} from "@atomiqlabs/server-base";
+import {createHttpRateLimiter} from "../http/HttpRateLimiter";
+import {createConnectionRateLimiter} from "../http/ConnectionRateLimiter";
+import {createBodySizeLimiter} from "../http/BodySizeLimiter";
 
 export enum IntermediaryInitState {
     STARTING="starting",
@@ -487,6 +490,9 @@ export class IntermediaryRunner extends EventEmitter {
         }
 
         const restServer = http2Express(express) as express.Express;
+        restServer.use(createBodySizeLimiter(8*1024));
+        restServer.use(createHttpRateLimiter(IntermediaryConfig.REST.REQUEST_LIMIT?.LIMIT, IntermediaryConfig.REST.REQUEST_LIMIT?.WINDOW_MS));
+        restServer.use(createConnectionRateLimiter(IntermediaryConfig.REST.CONNECTION_LIMIT));
         restServer.use(cors());
 
         for(let swapHandler of this.swapHandlers) {
@@ -508,6 +514,8 @@ export class IntermediaryRunner extends EventEmitter {
                 restServer
             );
         }
+
+        server.setTimeout(IntermediaryConfig.REST.CONNECTION_TIMEOUT_MS ?? 15 * 1000);
 
         await new Promise<void>((resolve, reject) => {
             server.on("error", e => reject(e));
