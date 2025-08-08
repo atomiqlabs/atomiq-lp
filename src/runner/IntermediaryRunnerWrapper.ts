@@ -18,7 +18,8 @@ import {
     cmdNumberParser,
     cmdStringParser,
     CommandHandler,
-    createCommand
+    createCommand,
+    RpcConfig
 } from "@atomiqlabs/server-base";
 import {fromDecimal, toDecimal} from "../Utils";
 import {allowedChains, IntermediaryConfig} from "../IntermediaryConfig";
@@ -274,11 +275,11 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                         const amtBN = fromDecimal(args.amount, tokenData.decimals);
 
                         const txns = await chainInterface.txsTransfer(signer.getAddress(), tokenData.address, amtBN, args.address);
-                        await chainInterface.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
+                        const txIds = await chainInterface.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
                             sendLine("Transaction sent, signature: "+txId+" waiting for confirmation...");
                             return Promise.resolve();
                         });
-                        return "Transfer transaction confirmed!";
+                        return "Transfer transaction confirmed! TxId: "+txIds[txIds.length-1];
                     }
                 }
             ),
@@ -307,11 +308,11 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                         const amtBN = fromDecimal(args.amount, tokenData.decimals);
 
                         const txns = await swapContract.txsDeposit(signer.getAddress(), tokenData.address, amtBN);
-                        await chainInterface.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
+                        const txIds = await chainInterface.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
                             sendLine("Transaction sent, signature: "+txId+" waiting for confirmation...");
                             return Promise.resolve();
                         });
-                        return "Deposit transaction confirmed!";
+                        return "Deposit transaction confirmed! TxId: "+txIds[txIds.length-1];
                     }
                 }
             ),
@@ -340,11 +341,11 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                         const amtBN = fromDecimal(args.amount, tokenData.decimals);
 
                         const txns = await swapContract.txsWithdraw(signer.getAddress(), tokenData.address, amtBN);
-                        await chainInterface.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
+                        const txIds = await chainInterface.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
                             sendLine("Transaction sent, signature: "+txId+" waiting for confirmation...");
                             return Promise.resolve();
                         });
-                        return "Withdrawal transaction confirmed!";
+                        return "Withdrawal transaction confirmed! TxId: "+txIds[txIds.length-1];
                     }
                 }
             ),
@@ -837,7 +838,13 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
             );
         }
 
-        this.cmdHandler = new CommandHandler(commands, IntermediaryConfig.CLI.ADDRESS, IntermediaryConfig.CLI.PORT, "Welcome to atomiq intermediary (LP node) CLI!");
+        // Create RPC config if RPC is configured
+        const rpcConfig: RpcConfig | undefined = IntermediaryConfig.RPC && IntermediaryConfig.RPC.PORT ? {
+            address: IntermediaryConfig.RPC.ADDRESS || "127.0.0.1",
+            port: IntermediaryConfig.RPC.PORT
+        } : undefined;
+
+        this.cmdHandler = new CommandHandler(commands, IntermediaryConfig.CLI.ADDRESS, IntermediaryConfig.CLI.PORT, "Welcome to atomiq intermediary (LP node) CLI!", rpcConfig);
     }
 
     async init() {
