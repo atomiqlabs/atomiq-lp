@@ -837,7 +837,19 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
             );
         }
 
-        this.cmdHandler = new CommandHandler(commands, IntermediaryConfig.CLI.ADDRESS, IntermediaryConfig.CLI.PORT, "Welcome to atomiq intermediary (LP node) CLI!");
+        // Create RPC config if RPC is configured
+        const rpcConfig = IntermediaryConfig.RPC && IntermediaryConfig.RPC.PORT ? {
+            address: IntermediaryConfig.RPC.ADDRESS || "127.0.0.1",
+            port: IntermediaryConfig.RPC.PORT,
+            requestLimit: IntermediaryConfig.RPC.REQUEST_LIMIT ? {
+                limit: IntermediaryConfig.RPC.REQUEST_LIMIT.LIMIT,
+                windowMs: IntermediaryConfig.RPC.REQUEST_LIMIT.WINDOW_MS
+            } : undefined,
+            connectionLimit: IntermediaryConfig.RPC.CONNECTION_LIMIT,
+            maxBodyBytes: IntermediaryConfig.RPC.MAX_BODY_BYTES
+        } : undefined;
+
+        this.cmdHandler = new CommandHandler(commands, IntermediaryConfig.CLI.ADDRESS, IntermediaryConfig.CLI.PORT, "Welcome to atomiq intermediary (LP node) CLI!", rpcConfig as any);
     }
 
     async init() {
