@@ -23,10 +23,10 @@
   "dependencies": {
     "@atomiqlabs/base": "^10.0.0-dev.9",
     "@atomiqlabs/btc-bitcoind": "^8.0.0-dev.0",
-    "@atomiqlabs/chain-evm": "^1.0.0-dev.38",
+    "@atomiqlabs/chain-evm": "^1.0.0-dev.43",
     "@atomiqlabs/chain-solana": "^10.0.0-dev.4",
-    "@atomiqlabs/chain-starknet": "^4.0.0-dev.10",
-    "@atomiqlabs/lp-lib": "^14.0.0-dev.13",
+    "@atomiqlabs/chain-starknet": "^4.0.0-dev.11",
+    "@atomiqlabs/lp-lib": "^14.0.0-dev.16",
     "@atomiqlabs/server-base": "3.0.0",
     "@atomiqlabs/wallet-lnd": "^4.0.0-dev.2",
     "@coral-xyz/anchor": "0.29.0",
