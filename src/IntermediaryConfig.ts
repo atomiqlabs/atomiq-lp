@@ -155,8 +155,8 @@ const IntermediaryConfigTemplate = {
     }),
 
     RPC: objectParser({
-        ADDRESS: stringParser(null, null, true),
-        PORT: numberParser(false, 0, 65535, true)
+        ADDRESS: stringParser(),
+        PORT: numberParser(false, 0, 65535)
     }, null, true),
 
     SSL: objectParser({

@@ -891,8 +891,8 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
         };
 
         // Create RPC config if RPC is configured
-        const rpcConfig: RpcConfig | undefined = IntermediaryConfig.RPC && IntermediaryConfig.RPC.PORT ? {
-            address: IntermediaryConfig.RPC.ADDRESS || "127.0.0.1",
+        const rpcConfig: RpcConfig | undefined = IntermediaryConfig.RPC ? {
+            address: IntermediaryConfig.RPC.ADDRESS,
             port: IntermediaryConfig.RPC.PORT
         } : undefined;
 
