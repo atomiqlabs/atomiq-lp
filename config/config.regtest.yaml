@@ -106,6 +106,10 @@ REST:
   ADDRESS: "0.0.0.0"
   PORT: 4001
 
+RPC:
+  ADDRESS: "127.0.0.1"
+  PORT: 41121
+
 SSL:
   CERT_FILE: "./server.cert"
   KEY_FILE: "./server.key"

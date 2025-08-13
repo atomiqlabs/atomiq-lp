@@ -18,7 +18,9 @@ import {
     cmdNumberParser,
     cmdStringParser,
     CommandHandler,
-    createCommand
+    createCommand,
+    RpcConfig,
+    TcpCliConfig
 } from "@atomiqlabs/server-base";
 import {fromDecimal, toDecimal} from "../Utils";
 import {allowedChains, IntermediaryConfig} from "../IntermediaryConfig";
@@ -101,9 +103,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                 {
                     args: {},
                     parser: async (args) => {
-                        const reply: string[] = [];
-
-                        reply.push("SmartChains status:");
+                        const smartChains: any = {};
                         for(let chainId in this.multichainData.chains) {
                             const {chainInterface, signer} = this.multichainData.chains[chainId];
                             const nativeTokenAddress = chainInterface.getNativeCurrencyAddress();
@@ -114,47 +114,50 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             } catch (e) {
                                 console.error(e);
                             }
-                            reply.push("    "+chainId+":");
-                            reply.push("        RPC status: "+(nativeTokenBalance!=null ? "ready" : "offline!"));
-                            if(nativeTokenBalance!=null) {
-                                reply.push("        Funds: " + toDecimal(nativeTokenBalance, decimals)+" "+ticker);
-                                reply.push("        Has enough funds (>0.1): " + (nativeTokenBalance > 100000000n ? "yes" : "no"));
-                            }
+                            smartChains[chainId] = {
+                                rpcStatus: nativeTokenBalance != null ? "ready" : "offline",
+                                funds: nativeTokenBalance != null ? toDecimal(nativeTokenBalance, decimals) : null,
+                                ticker: ticker,
+                                hasEnoughFunds: nativeTokenBalance != null ? nativeTokenBalance > 100000000n : false
+                            };
                         }
 
+                        let bitcoinRpc = null;
                         if(this.bitcoinRpc!=null) {
                             const btcRpcStatus = await this.bitcoinRpc.getSyncInfo().catch(e => null);
-                            reply.push("Bitcoin RPC status:");
-                            reply.push("    Status: "+(btcRpcStatus==null ? "offline" : btcRpcStatus.ibd ? "verifying blockchain" : "ready"));
-                            if(btcRpcStatus!=null) {
-                                reply.push("    Verification progress: "+(btcRpcStatus.verificationProgress*100).toFixed(4)+"%");
-                                reply.push("    Synced headers: "+btcRpcStatus.headers);
-                                reply.push("    Synced blocks: "+btcRpcStatus.blocks);
-                            }
+                            bitcoinRpc = {
+                                status: btcRpcStatus == null ? "offline" : btcRpcStatus.ibd ? "verifying blockchain" : "ready",
+                                verificationProgress: btcRpcStatus?.verificationProgress ? 
+                                    (btcRpcStatus.verificationProgress * 100).toFixed(4) + "%" : null,
+                                syncedHeaders: btcRpcStatus?.headers || null,
+                                syncedBlocks: btcRpcStatus?.blocks || null
+                            };
                         }
 
+                        let bitcoinWallet = null;
                         if(this.bitcoinWallet!=null) {
-                            reply.push("Bitcoin wallet status:");
-                            reply.push("    Wallet status: "+this.bitcoinWallet.getStatus());
-                            const bitcoinInfo = this.bitcoinWallet.getStatusInfo();
-                            for(let key in bitcoinInfo) {
-                                reply.push("    "+key+": "+bitcoinInfo[key]);
-                            }
+                            bitcoinWallet = {
+                                status: this.bitcoinWallet.getStatus(),
+                                ...this.bitcoinWallet.getStatusInfo()
+                            };
                         }
 
+                        let lightningWallet = null;
                         if(this.lightningWallet!=null) {
-                            reply.push("Lightning wallet status:");
-                            reply.push("    Wallet status: " + this.lightningWallet.getStatus());
-                            if (this.lightningWallet.isReady()) reply.push("    Node pubkey: " + await this.lightningWallet.getIdentityPublicKey());
-                            const lightningInfo = this.lightningWallet.getStatusInfo();
-                            for (let key in lightningInfo) {
-                                reply.push("    " + key + ": " + lightningInfo[key]);
-                            }
+                            lightningWallet = {
+                                status: this.lightningWallet.getStatus(),
+                                nodePubkey: this.lightningWallet.isReady() ? await this.lightningWallet.getIdentityPublicKey() : null,
+                                ...this.lightningWallet.getStatusInfo()
+                            };
                         }
 
-                        reply.push("LP node status: "+this.initState);
-
-                        return reply.join("\n");
+                        return {
+                            smartChains,
+                            bitcoinRpc,
+                            bitcoinWallet,
+                            lightningWallet,
+                            lpNodeStatus: this.initState
+                        };
                     }
                 }
             ),
@@ -164,20 +167,21 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                 {
                     args: {},
                     parser: async (args) => {
-                        const reply: string[] = [];
+                        const addresses: any = {};
                         for(let chainId in this.multichainData.chains) {
                             const {signer} = this.multichainData.chains[chainId];
-                            reply.push(chainId+" address: "+signer.getAddress());
+                            addresses[chainId] = signer.getAddress();
                         }
 
                         if(this.bitcoinWallet!=null) {
                             if(!this.bitcoinWallet.isReady()) {
-                                reply.push("Bitcoin address: unknown (bitcoin wallet not ready)");
+                                addresses.bitcoin = { error: "bitcoin wallet not ready" };
                             } else {
-                                reply.push("Bitcoin address: "+await this.bitcoinWallet.getAddress());
+                                addresses.bitcoin = await this.bitcoinWallet.getAddress();
                             }
                         }
-                        return reply.join("\n");
+                        
+                        return { addresses };
                     }
                 }
             ),
@@ -187,46 +191,68 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                 {
                     args: {},
                     parser: async (args) => {
-                        const reply: string[] = [];
-                        reply.push("Wallet balances (non-trading):");
+                        const nonTradingWalletBalances: any = {};
                         for(let chainId in this.addressesToTokens) {
                             const {swapContract, signer} = this.multichainData.chains[chainId];
+                            nonTradingWalletBalances[chainId] = {};
                             for(let tokenAddress in this.addressesToTokens[chainId]) {
                                 const tokenData = this.addressesToTokens[chainId][tokenAddress];
                                 const tokenBalance = await swapContract.getBalance(signer.getAddress(), tokenAddress, false);
-                                reply.push("    "+this.toReadableToken(chainId, tokenData.ticker)+": "+toDecimal(tokenBalance, tokenData.decimals));
+                                nonTradingWalletBalances[chainId][tokenData.ticker] = {
+                                    balance: toDecimal(tokenBalance, tokenData.decimals),
+                                    decimals: tokenData.decimals
+                                };
                             }
                         }
-                        reply.push("LP Vault balances (trading):");
+
+                        const tradingVaultBalances: any = {};
                         for(let chainId in this.addressesToTokens) {
                             const {swapContract, signer} = this.multichainData.chains[chainId];
+                            tradingVaultBalances[chainId] = {};
                             for(let tokenAddress in this.addressesToTokens[chainId]) {
                                 const tokenData = this.addressesToTokens[chainId][tokenAddress];
                                 const tokenBalance = await swapContract.getBalance(signer.getAddress(),tokenAddress, true);
-                                reply.push("    "+this.toReadableToken(chainId, tokenData.ticker)+": "+toDecimal(tokenBalance || 0n, tokenData.decimals));
+                                tradingVaultBalances[chainId][tokenData.ticker] = {
+                                    balance: toDecimal(tokenBalance || 0n, tokenData.decimals),
+                                    decimals: tokenData.decimals
+                                };
                             }
                         }
 
+                        let tradingBitcoinBalance = null;
                         if(this.bitcoinWallet!=null) {
-                            reply.push("Bitcoin balances (trading):");
                             if(!this.bitcoinWallet.isReady()) {
-                                reply.push("    BTC: unknown (bitcoin wallet not ready)");
+                                tradingBitcoinBalance = { error: "bitcoin wallet not ready" };
                             } else {
                                 const balances = await this.bitcoinWallet.getBalance();
-                                reply.push("    BTC: "+toDecimal(BigInt(balances.confirmed), 8)+" (+"+toDecimal(BigInt(balances.unconfirmed), 8)+")");
+                                tradingBitcoinBalance = {
+                                    confirmed: toDecimal(BigInt(balances.confirmed), 8),
+                                    unconfirmed: toDecimal(BigInt(balances.unconfirmed), 8),
+                                    decimals: 8
+                                };
                             }
                         }
 
+                        let tradingLightningBalance = null;
                         if(this.lightningWallet!=null) {
                             if(!this.lightningWallet.isReady()) {
-                                reply.push("    BTC-LN: unknown (lightning wallet not ready)");
+                                tradingLightningBalance = { error: "lightning wallet not ready" };
                             } else {
                                 const channelBalance = await this.lightningWallet.getLightningBalance();
-                                reply.push("    BTC-LN: "+toDecimal(BigInt(channelBalance.localBalance), 8)+" (+"+toDecimal(BigInt(channelBalance.unsettledBalance), 8)+")");
+                                tradingLightningBalance = {
+                                    localBalance: toDecimal(BigInt(channelBalance.localBalance), 8),
+                                    unsettledBalance: toDecimal(BigInt(channelBalance.unsettledBalance), 8),
+                                    decimals: 8
+                                };
                             }
                         }
 
-                        return reply.join("\n");
+                        return {
+                            nonTradingWalletBalances,
+                            tradingVaultBalances,
+                            tradingBitcoinBalance,
+                            tradingLightningBalance
+                        };
                     }
                 }
             ),
@@ -274,11 +300,11 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                         const amtBN = fromDecimal(args.amount, tokenData.decimals);
 
                         const txns = await chainInterface.txsTransfer(signer.getAddress(), tokenData.address, amtBN, args.address);
-                        await chainInterface.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
+                        const txIds = await chainInterface.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
                             sendLine("Transaction sent, signature: "+txId+" waiting for confirmation...");
                             return Promise.resolve();
                         });
-                        return "Transfer transaction confirmed!";
+                        return "Transfer transaction confirmed! TxId: "+txIds[txIds.length-1];
                     }
                 }
             ),
@@ -307,11 +333,11 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                         const amtBN = fromDecimal(args.amount, tokenData.decimals);
 
                         const txns = await swapContract.txsDeposit(signer.getAddress(), tokenData.address, amtBN);
-                        await chainInterface.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
+                        const txIds = await chainInterface.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
                             sendLine("Transaction sent, signature: "+txId+" waiting for confirmation...");
                             return Promise.resolve();
                         });
-                        return "Deposit transaction confirmed!";
+                        return "Deposit transaction confirmed! TxId: "+txIds[txIds.length-1];
                     }
                 }
             ),
@@ -340,11 +366,11 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                         const amtBN = fromDecimal(args.amount, tokenData.decimals);
 
                         const txns = await swapContract.txsWithdraw(signer.getAddress(), tokenData.address, amtBN);
-                        await chainInterface.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
+                        const txIds = await chainInterface.sendAndConfirm(signer, txns, true, null, null, (txId: string) => {
                             sendLine("Transaction sent, signature: "+txId+" waiting for confirmation...");
                             return Promise.resolve();
                         });
-                        return "Withdrawal transaction confirmed!";
+                        return "Withdrawal transaction confirmed! TxId: "+txIds[txIds.length-1];
                     }
                 }
             ),
@@ -354,33 +380,55 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                 {
                     args: {},
                     parser: async (args, sendLine) => {
-                        const reply: string[] = [];
-                        reply.push("LP node's reputation:");
+                        const reputation: any = {};
                         for(let chainId in this.addressesToTokens) {
                             const {swapContract, signer} = this.multichainData.chains[chainId];
+                            reputation[chainId] = {};
                             for(let tokenAddress in this.addressesToTokens[chainId]) {
                                 const {ticker, decimals} = this.addressesToTokens[chainId][tokenAddress];
 
-                                const reputation = await swapContract.getIntermediaryReputation(signer.getAddress(), tokenAddress);
-                                if(reputation==null) {
-                                    reply.push(this.toReadableToken(chainId, ticker)+": No reputation");
+                                const reputationData = await swapContract.getIntermediaryReputation(signer.getAddress(), tokenAddress);
+                                if(reputationData==null) {
+                                    reputation[chainId][ticker] = null;
                                     continue;
                                 }
-                                reply.push(this.toReadableToken(chainId, ticker)+":");
-                                const lnData = reputation[ChainSwapType.HTLC];
-                                reply.push("   LN:");
-                                reply.push("       successes: "+toDecimal(lnData.successVolume, decimals)+" ("+lnData.successCount.toString(10)+" swaps)");
-                                reply.push("       fails: "+toDecimal(lnData.failVolume, decimals)+" ("+lnData.failCount.toString(10)+" swaps)");
-                                reply.push("       coop closes: "+toDecimal(lnData.coopCloseVolume, decimals)+" ("+lnData.coopCloseCount.toString(10)+" swaps)");
-
-                                const onChainData = reputation[ChainSwapType.CHAIN_NONCED];
-                                reply.push("   On-chain:");
-                                reply.push("       successes: "+toDecimal(onChainData.successVolume, decimals)+" ("+onChainData.successCount.toString(10)+" swaps)");
-                                reply.push("       fails: "+toDecimal(onChainData.failVolume, decimals)+" ("+onChainData.failCount.toString(10)+" swaps)");
-                                reply.push("       coop closes: "+toDecimal(onChainData.coopCloseVolume, decimals)+" ("+onChainData.coopCloseCount.toString(10)+" swaps)");
+                                
+                                const lnData = reputationData[ChainSwapType.HTLC];
+                                const onChainData = reputationData[ChainSwapType.CHAIN_NONCED];
+                                
+                                reputation[chainId][ticker] = {
+                                    lightning: {
+                                        successes: {
+                                            volume: toDecimal(lnData.successVolume, decimals),
+                                            count: lnData.successCount.toString(10)
+                                        },
+                                        fails: {
+                                            volume: toDecimal(lnData.failVolume, decimals),
+                                            count: lnData.failCount.toString(10)
+                                        },
+                                        coopCloses: {
+                                            volume: toDecimal(lnData.coopCloseVolume, decimals),
+                                            count: lnData.coopCloseCount.toString(10)
+                                        }
+                                    },
+                                    onChain: {
+                                        successes: {
+                                            volume: toDecimal(onChainData.successVolume, decimals),
+                                            count: onChainData.successCount.toString(10)
+                                        },
+                                        fails: {
+                                            volume: toDecimal(onChainData.failVolume, decimals),
+                                            count: onChainData.failCount.toString(10)
+                                        },
+                                        coopCloses: {
+                                            volume: toDecimal(onChainData.coopCloseVolume, decimals),
+                                            count: onChainData.coopCloseCount.toString(10)
+                                        }
+                                    }
+                                };
                             }
                         }
-                        return reply.join("\n");
+                        return { reputation };
                     }
                 }
             ),
@@ -390,13 +438,11 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                 {
                     args: {},
                     parser: async (args, sendLine) => {
-                        const reply: string[] = [];
-                        reply.push("Loaded plugins:");
+                        const plugins: any = {};
                         for(let [name, plugin] of PluginManager.plugins.entries()) {
-                            reply.push("    - "+name+" : "+(plugin.description || "No description"));
+                            plugins[name] = plugin.description || "No description";
                         }
-                        if(reply.length===1) reply.push("   No loaded plugins");
-                        return reply.join("\n");
+                        return { plugins };
                     }
                 }
             ),
@@ -408,7 +454,7 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                     parser: async (args, sendLine) => {
                         if(IntermediaryConfig.SSL_AUTO==null) throw new Error("Node is not using SSL_AUTO mode for certificate provision!");
                         if(this.sslAutoUrl==null) throw new Error("Url not generated yet (node is still syncing?)");
-                        return "Node url: "+this.sslAutoUrl;
+                        return { url: this.sslAutoUrl };
                     }
                 }
             ),
@@ -837,7 +883,20 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
             );
         }
 
-        this.cmdHandler = new CommandHandler(commands, IntermediaryConfig.CLI.ADDRESS, IntermediaryConfig.CLI.PORT, "Welcome to atomiq intermediary (LP node) CLI!");
+        // Create TCP CLI config
+        const tcpCliConfig: TcpCliConfig = {
+            address: IntermediaryConfig.CLI.ADDRESS,
+            port: IntermediaryConfig.CLI.PORT,
+            introMessage: "Welcome to atomiq intermediary (LP node) CLI!"
+        };
+
+        // Create RPC config if RPC is configured
+        const rpcConfig: RpcConfig | undefined = IntermediaryConfig.RPC ? {
+            address: IntermediaryConfig.RPC.ADDRESS,
+            port: IntermediaryConfig.RPC.PORT
+        } : undefined;
+
+        this.cmdHandler = new CommandHandler(commands, tcpCliConfig, rpcConfig);
     }
 
     async init() {

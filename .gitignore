@@ -7,3 +7,4 @@ config/config.yaml
 config/_config.yaml
 plugins
 wallet.txt
+password.txt

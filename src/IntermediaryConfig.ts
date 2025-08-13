@@ -154,6 +154,11 @@ const IntermediaryConfigTemplate = {
         CONNECTION_TIMEOUT_MS: numberParser(false, 0, undefined, true)
     }),
 
+    RPC: objectParser({
+        ADDRESS: stringParser(),
+        PORT: numberParser(false, 0, 65535)
+    }, null, true),
+
     SSL: objectParser({
         CERT_FILE: stringParser(),
         KEY_FILE: stringParser()
