@@ -19,7 +19,8 @@ import {
     cmdStringParser,
     CommandHandler,
     createCommand,
-    RpcConfig
+    RpcConfig,
+    TcpCliConfig
 } from "@atomiqlabs/server-base";
 import {fromDecimal, toDecimal} from "../Utils";
 import {allowedChains, IntermediaryConfig} from "../IntermediaryConfig";
@@ -882,13 +883,20 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
             );
         }
 
+        // Create TCP CLI config
+        const tcpCliConfig: TcpCliConfig = {
+            address: IntermediaryConfig.CLI.ADDRESS,
+            port: IntermediaryConfig.CLI.PORT,
+            introMessage: "Welcome to atomiq intermediary (LP node) CLI!"
+        };
+
         // Create RPC config if RPC is configured
         const rpcConfig: RpcConfig | undefined = IntermediaryConfig.RPC && IntermediaryConfig.RPC.PORT ? {
             address: IntermediaryConfig.RPC.ADDRESS || "127.0.0.1",
             port: IntermediaryConfig.RPC.PORT
         } : undefined;
 
-        this.cmdHandler = new CommandHandler(commands, IntermediaryConfig.CLI.ADDRESS, IntermediaryConfig.CLI.PORT, "Welcome to atomiq intermediary (LP node) CLI!", rpcConfig);
+        this.cmdHandler = new CommandHandler(commands, tcpCliConfig, rpcConfig);
     }
 
     async init() {
