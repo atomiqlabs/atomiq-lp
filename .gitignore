@@ -3,9 +3,8 @@ node_modules
 package-lock.json
 .idea
 dist
-server.cert
-server.key
 config/config.yaml
 config/_config.yaml
 plugins
 wallet.txt
+password.txt

@@ -35,7 +35,7 @@ const IntermediaryConfigTemplate = {
         HOST: stringParser(),
         RPC_USERNAME: stringParser(),
         RPC_PASSWORD: stringParser(),
-        NETWORK: enumParser<"mainnet" | "testnet" | "testnet4">(["mainnet", "testnet", "testnet4"]),
+        NETWORK: enumParser<"mainnet" | "testnet" | "testnet4" | "regtest">(["mainnet", "testnet", "testnet4", "regtest"]),
         ADD_NETWORK_FEE: numberParser(true, 0, null, true),
         MULTIPLY_NETWORK_FEE: numberParser(true, 0, null, true)
     }),
@@ -153,6 +153,11 @@ const IntermediaryConfigTemplate = {
         CONNECTION_LIMIT: numberParser(false, 0, undefined, true),
         CONNECTION_TIMEOUT_MS: numberParser(false, 0, undefined, true)
     }),
+
+    RPC: objectParser({
+        ADDRESS: stringParser(),
+        PORT: numberParser(false, 0, 65535)
+    }, null, true),
 
     SSL: objectParser({
         CERT_FILE: stringParser(),
