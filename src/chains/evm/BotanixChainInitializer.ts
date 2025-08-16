@@ -8,7 +8,7 @@ import {
 import {
     EVMFees,
     EVMSigner,
-    initializeBotanix, BotanixChainType
+    initializeBotanix, BotanixChainType, JsonRpcProviderWithRetries
 } from "@atomiqlabs/chain-evm";
 import {JsonRpcProvider} from "ethers";
 import {getEVMSigner} from "./signer/BaseEVMSigner";
@@ -31,7 +31,7 @@ export const BotanixChainInitializer: ChainInitializer<BotanixChainType, any, ty
     loadChain: (configuration, bitcoinRpc, bitcoinNetwork) => {
         const directory = process.env.STORAGE_DIR;
 
-        const provider = new JsonRpcProvider(configuration.RPC_URL);
+        const provider = new JsonRpcProviderWithRetries(configuration.RPC_URL);
 
         const {chainInterface, btcRelay, swapContract, spvVaultContract} = initializeBotanix({
             rpcUrl: provider,
