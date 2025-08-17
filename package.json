@@ -23,7 +23,7 @@
   "dependencies": {
     "@atomiqlabs/base": "^10.0.0-dev.9",
     "@atomiqlabs/btc-bitcoind": "^8.0.0-dev.0",
-    "@atomiqlabs/chain-evm": "^1.0.0-dev.51",
+    "@atomiqlabs/chain-evm": "^1.0.0-dev.59",
     "@atomiqlabs/chain-solana": "^10.0.0-dev.5",
     "@atomiqlabs/chain-starknet": "^4.0.0-dev.12",
     "@atomiqlabs/lp-lib": "^14.0.0-dev.21",
