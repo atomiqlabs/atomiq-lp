@@ -53,7 +53,8 @@ export const CitreaChainInitializer: ChainInitializer<CitreaChainType, any, type
         const evmSigner = getEVMSigner(configuration);
 
         const chainEvents = new EVMChainEvents(
-            directory, chainInterface, swapContract, spvVaultContract
+            directory, chainInterface, swapContract, spvVaultContract,
+            configuration.RPC_URL.startsWith("ws") ? 30 : undefined //We don't need to check that often when using websocket
         );
 
         const signer = new EVMSigner(evmSigner, evmSigner.address);
