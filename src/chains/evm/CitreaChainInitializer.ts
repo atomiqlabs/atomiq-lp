@@ -11,7 +11,7 @@ import {
     CitreaChainType,
     EVMSigner,
     EVMSpvVaultData,
-    CitreaFees, JsonRpcProviderWithRetries
+    CitreaFees, JsonRpcProviderWithRetries, WebSocketProviderWithRetries
 } from "@atomiqlabs/chain-evm";
 import {JsonRpcProvider} from "ethers";
 import {getEVMSigner} from "./signer/BaseEVMSigner";
@@ -34,7 +34,9 @@ export const CitreaChainInitializer: ChainInitializer<CitreaChainType, any, type
     loadChain: (configuration, bitcoinRpc, bitcoinNetwork) => {
         const directory = process.env.STORAGE_DIR;
 
-        const provider = new JsonRpcProviderWithRetries(configuration.RPC_URL);
+        const provider = configuration.RPC_URL.startsWith("ws")
+            ? new WebSocketProviderWithRetries(configuration.RPC_URL)
+            : new JsonRpcProviderWithRetries(configuration.RPC_URL);
 
         const {chainInterface, btcRelay, swapContract, spvVaultContract} = initializeCitrea({
             rpcUrl: provider,
