@@ -13,7 +13,7 @@ import {
 import {JsonRpcProvider} from "ethers";
 import {getEVMSigner} from "./signer/BaseEVMSigner";
 import {EVMChainEvents} from "@atomiqlabs/chain-evm/dist/evm/events/EVMChainEvents";
-import WebSocket from "ws";
+import * as WebSocket from "ws";
 
 const template = {
     RPC_URL: stringParser(),
