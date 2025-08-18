@@ -25,7 +25,6 @@ import {
 import {fromDecimal, toDecimal} from "../Utils";
 import {allowedChains, IntermediaryConfig} from "../IntermediaryConfig";
 import {Registry} from "../Registry";
-import * as bolt11 from "@atomiqlabs/bolt11";
 import {bigIntSorter} from "@atomiqlabs/lp-lib/dist/utils/Utils";
 
 function sortVaults(vaults: SpvVault[]) {
@@ -558,13 +557,11 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                                 if(_swap.type===SwapHandlerType.TO_BTCLN) {
                                     const swap = _swap as ToBtcLnSwapAbs;
                                     if(args.quotes!==1 && swap.state===ToBtcLnSwapState.SAVED) continue;
-                                    const parsedPR = bolt11.decode(swap.pr);
-                                    const sats = BigInt(parsedPR.millisatoshis) / 1000n;
                                     const swapInfo: any = {
                                         type: "TO_BTCLN",
                                         fromAmount: toDecimal(swap.data.getAmount(), tokenData.decimals),
                                         fromToken: tokenData.ticker,
-                                        toAmount: toDecimal(sats, 8),
+                                        toAmount: toDecimal(swap.getOutputAmount(), 8),
                                         toToken: "BTC-LN",
                                         identifierHash: _swap.getIdentifierHash(),
                                         escrowHash: _swap.getEscrowHash(),
@@ -625,11 +622,9 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                                 if(_swap.type===SwapHandlerType.FROM_BTCLN) {
                                     const swap = _swap as FromBtcLnSwapAbs;
                                     if(args.quotes!==1 && swap.state===FromBtcLnSwapState.CREATED) continue;
-                                    const parsedPR = bolt11.decode(swap.pr);
-                                    const sats = BigInt(parsedPR.millisatoshis) / 1000n;
                                     const swapInfo: any = {
                                         type: "FROM_BTCLN",
-                                        fromAmount: toDecimal(sats, 8),
+                                        fromAmount: toDecimal(swap.getTotalInputAmount(), 8),
                                         fromToken: "BTC-LN",
                                         toAmount: toDecimal(swap.getOutputAmount(), tokenData.decimals),
                                         toToken: tokenData.ticker,
