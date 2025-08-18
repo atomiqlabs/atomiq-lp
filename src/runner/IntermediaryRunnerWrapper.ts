@@ -290,7 +290,11 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             const res = await this.bitcoinWallet.getSignedTransaction(args.address, Number(amtBN), args.feeRate);
                             await this.bitcoinWallet.sendRawTransaction(res.raw);
 
-                            return "Transaction sent, txId: "+res.txId;
+                            return {
+                                success: true,
+                                message: "Transaction sent",
+                                txId: res.txId
+                            };
                         }
 
                         const {chainId, ticker} = this.fromReadableToken(args.asset);
@@ -304,7 +308,11 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             sendLine("Transaction sent, signature: "+txId+" waiting for confirmation...");
                             return Promise.resolve();
                         });
-                        return "Transfer transaction confirmed! TxId: "+txIds[txIds.length-1];
+                        return {
+                            success: true,
+                            message: "Transfer transaction confirmed",
+                            txId: txIds[txIds.length-1]
+                        };
                     }
                 }
             ),
@@ -337,7 +345,11 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             sendLine("Transaction sent, signature: "+txId+" waiting for confirmation...");
                             return Promise.resolve();
                         });
-                        return "Deposit transaction confirmed! TxId: "+txIds[txIds.length-1];
+                        return {
+                            success: true,
+                            message: "Deposit transaction confirmed",
+                            txId: txIds[txIds.length-1]
+                        };
                     }
                 }
             ),
@@ -370,7 +382,11 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             sendLine("Transaction sent, signature: "+txId+" waiting for confirmation...");
                             return Promise.resolve();
                         });
-                        return "Withdrawal transaction confirmed! TxId: "+txIds[txIds.length-1];
+                        return {
+                            success: true,
+                            message: "Withdrawal transaction confirmed",
+                            txId: txIds[txIds.length-1]
+                        };
                     }
                 }
             ),
@@ -475,12 +491,27 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                         const isRegistering = await this.lpRegistry.isRegistering();
                         if(isRegistering) {
                             const {status, url} = await this.lpRegistry.getRegistrationStatus();
-                            return "LP registration status: "+status+"\nGithub PR: "+url;
+                            return {
+                                success: true,
+                                status: "checking",
+                                message: "LP registration status: " + status,
+                                githubPR: url
+                            };
                         } else {
                             const network = IntermediaryConfig.BITCOIND.NETWORK;
-                            if(network==="regtest") return "Not supported on regtest!";
+                            if(network==="regtest") {
+                                return {
+                                    success: false,
+                                    message: "Not supported on regtest!"
+                                };
+                            }
                             const url = await this.lpRegistry.register(network, this.sslAutoUrl, args.mail==="" ? null : args.mail);
-                            return "LP registration request created: "+url;
+                            return {
+                                success: true,
+                                status: "created",
+                                message: "LP registration request created",
+                                url: url
+                            };
                         }
                     }
                 }
@@ -497,82 +528,102 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                         }
                     },
                     parser: async (args, sendLine) => {
-                        const swapData: string[] = [];
+                        const swaps: any[] = [];
                         for(let swapHandler of this.swapHandlers) {
                             for(let {obj: _swap} of await swapHandler.storageManager.query([])) {
                                 const tokenData = this.addressesToTokens[_swap.chainIdentifier][_swap.getToken().toString()];
                                 if(_swap.type===SwapHandlerType.TO_BTC) {
                                     const swap = _swap as ToBtcSwapAbs;
                                     if(args.quotes!==1 && swap.state===ToBtcSwapState.SAVED) continue;
-                                    const lines = [
-                                        toDecimal(swap.data.getAmount(), tokenData.decimals)+" "+tokenData.ticker+" -> "+toDecimal(swap.amount, 8)+" BTC",
-                                        "Identifier hash: "+_swap.getIdentifierHash(),
-                                        "Escrow hash: "+_swap.getEscrowHash(),
-                                        "Claim hash: "+_swap.getClaimHash(),
-                                        "State: "+ToBtcSwapState[swap.state],
-                                        "Swap fee: "+toDecimal(swap.swapFee, 8)+" BTC",
-                                        "Network fee: "+toDecimal(swap.quotedNetworkFee, 8)+" BTC",
-                                        "Address: "+swap.address
-                                    ];
+                                    const swapInfo: any = {
+                                        type: "TO_BTC",
+                                        fromAmount: toDecimal(swap.data.getAmount(), tokenData.decimals),
+                                        fromToken: tokenData.ticker,
+                                        toAmount: toDecimal(swap.amount, 8),
+                                        toToken: "BTC",
+                                        identifierHash: _swap.getIdentifierHash(),
+                                        escrowHash: _swap.getEscrowHash(),
+                                        claimHash: _swap.getClaimHash(),
+                                        state: ToBtcSwapState[swap.state],
+                                        swapFee: toDecimal(swap.swapFee, 8),
+                                        quotedNetworkFee: toDecimal(swap.quotedNetworkFee, 8),
+                                        address: swap.address
+                                    };
                                     if(swap.txId!=null) {
-                                        lines.push("Tx ID: "+swap.txId);
-                                        lines.push("Paid network fee: "+toDecimal(swap.realNetworkFee, 8)+" BTC");
+                                        swapInfo.txId = swap.txId;
+                                        swapInfo.realNetworkFee = toDecimal(swap.realNetworkFee, 8);
                                     }
-                                    swapData.push(lines.join("\n"));
+                                    swaps.push(swapInfo);
                                 }
                                 if(_swap.type===SwapHandlerType.TO_BTCLN) {
                                     const swap = _swap as ToBtcLnSwapAbs;
                                     if(args.quotes!==1 && swap.state===ToBtcLnSwapState.SAVED) continue;
                                     const parsedPR = bolt11.decode(swap.pr);
                                     const sats = BigInt(parsedPR.millisatoshis) / 1000n;
-                                    const lines = [
-                                        toDecimal(swap.data.getAmount(), tokenData.decimals)+" "+tokenData.ticker+" -> "+toDecimal(sats, 8)+" BTC-LN",
-                                        "Identifier hash: "+_swap.getIdentifierHash(),
-                                        "Escrow hash: "+_swap.getEscrowHash(),
-                                        "Claim hash: "+_swap.getClaimHash(),
-                                        "State: "+ToBtcLnSwapState[swap.state],
-                                        "Swap fee: "+toDecimal(swap.swapFee, 8)+" BTC-LN",
-                                        "Network fee: "+toDecimal(swap.quotedNetworkFee, 8)+" BTC-LN",
-                                        "Invoice: "+swap.pr,
-                                    ];
+                                    const swapInfo: any = {
+                                        type: "TO_BTCLN",
+                                        fromAmount: toDecimal(swap.data.getAmount(), tokenData.decimals),
+                                        fromToken: tokenData.ticker,
+                                        toAmount: toDecimal(sats, 8),
+                                        toToken: "BTC-LN",
+                                        identifierHash: _swap.getIdentifierHash(),
+                                        escrowHash: _swap.getEscrowHash(),
+                                        claimHash: _swap.getClaimHash(),
+                                        state: ToBtcLnSwapState[swap.state],
+                                        swapFee: toDecimal(swap.swapFee, 8),
+                                        quotedNetworkFee: toDecimal(swap.quotedNetworkFee, 8),
+                                        invoice: swap.pr
+                                    };
                                     if(swap.realNetworkFee!=null) {
-                                        lines.push("Paid network fee: "+toDecimal(swap.realNetworkFee, 8)+" BTC-LN");
+                                        swapInfo.realNetworkFee = toDecimal(swap.realNetworkFee, 8);
                                     }
-                                    swapData.push(lines.join("\n"));
+                                    swaps.push(swapInfo);
                                 }
                                 if(_swap.type===SwapHandlerType.FROM_BTC) {
                                     const swap = _swap as FromBtcSwapAbs;
                                     if(args.quotes!==1 && swap.state===FromBtcSwapState.CREATED) continue;
-                                    const lines = [
-                                        toDecimal(swap.amount, 8)+" BTC -> "+toDecimal(swap.data.getAmount(), tokenData.decimals)+" "+tokenData.ticker,
-                                        "Identifier hash: "+_swap.getIdentifierHash(),
-                                        "Escrow hash: "+_swap.getEscrowHash(),
-                                        "Claim hash: "+_swap.getClaimHash(),
-                                        "State: "+FromBtcSwapState[swap.state],
-                                        "Swap fee: "+toDecimal(swap.swapFee, 8)+" BTC",
-                                        "Receiving address: "+swap.address
-                                    ];
-                                    swapData.push(lines.join("\n"));
+                                    const swapInfo: any = {
+                                        type: "FROM_BTC",
+                                        fromAmount: toDecimal(swap.amount, 8),
+                                        fromToken: "BTC",
+                                        toAmount: toDecimal(swap.data.getAmount(), tokenData.decimals),
+                                        toToken: tokenData.ticker,
+                                        identifierHash: _swap.getIdentifierHash(),
+                                        escrowHash: _swap.getEscrowHash(),
+                                        claimHash: _swap.getClaimHash(),
+                                        state: FromBtcSwapState[swap.state],
+                                        swapFee: toDecimal(swap.swapFee, 8),
+                                        address: swap.address
+                                    };
+                                    swaps.push(swapInfo);
                                 }
                                 if(_swap.type===SwapHandlerType.FROM_BTCLN) {
                                     const swap = _swap as FromBtcLnSwapAbs;
                                     if(args.quotes!==1 && swap.state===FromBtcLnSwapState.CREATED) continue;
                                     const parsedPR = bolt11.decode(swap.pr);
                                     const sats = BigInt(parsedPR.millisatoshis) / 1000n;
-                                    const lines = [
-                                        toDecimal(sats, 8)+" BTC-LN -> "+toDecimal(swap.getOutputAmount(), tokenData.decimals)+" "+tokenData.ticker,
-                                        "Identifier hash: "+_swap.getIdentifierHash(),
-                                        "Escrow hash: "+_swap.getEscrowHash(),
-                                        "Claim hash: "+_swap.getClaimHash(),
-                                        "State: "+FromBtcLnSwapState[swap.state],
-                                        "Swap fee: "+toDecimal(swap.swapFee, 8)+" BTC-LN",
-                                        "Receiving invoice: "+swap.pr
-                                    ];
-                                    swapData.push(lines.join("\n"));
+                                    const swapInfo: any = {
+                                        type: "FROM_BTCLN",
+                                        fromAmount: toDecimal(sats, 8),
+                                        fromToken: "BTC-LN",
+                                        toAmount: toDecimal(swap.getOutputAmount(), tokenData.decimals),
+                                        toToken: tokenData.ticker,
+                                        identifierHash: _swap.getIdentifierHash(),
+                                        escrowHash: _swap.getEscrowHash(),
+                                        claimHash: _swap.getClaimHash(),
+                                        state: FromBtcLnSwapState[swap.state],
+                                        swapFee: toDecimal(swap.swapFee, 8),
+                                        invoice: swap.pr
+                                    };
+                                    swaps.push(swapInfo);
                                 }
                             }
                         }
-                        return swapData.join("\n\n");
+                        return {
+                            success: true,
+                            swaps: swaps,
+                            count: swaps.length
+                        };
                     }
                 }
             )
@@ -606,12 +657,25 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             sendLine("Waiting for confirmation...");
                             const resp = await this.lightningWallet.waitForPayment(parsedInvoice.id);
                             if(resp.status==="confirmed") {
-                                return "Lightning transaction confirmed! Preimage: "+resp.secret;
+                                return {
+                                    success: true,
+                                    status: "confirmed",
+                                    message: "Lightning transaction confirmed",
+                                    preimage: resp.secret
+                                };
                             }
                             if(resp.status==="failed") {
-                                return "Lightning failed! No bitcoin was send";
+                                return {
+                                    success: false,
+                                    status: "failed",
+                                    message: "Lightning failed! No bitcoin was sent"
+                                };
                             }
-                            return "Lightning transaction is taking longer than expected, will be handled in the background!";
+                            return {
+                                success: true,
+                                status: "pending",
+                                message: "Lightning transaction is taking longer than expected, will be handled in the background"
+                            };
                         }
                     }
                 )
@@ -634,7 +698,11 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             const resp = await this.lightningWallet.createInvoice({
                                 mtokens: amtBN==null ? undefined : amtBN * 1000n
                             });
-                            return "Lightning network invoice: "+resp.request;
+                            return {
+                                success: true,
+                                message: "Lightning network invoice created",
+                                invoice: resp.request
+                            };
                         }
                     }
                 )
@@ -686,39 +754,49 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                                 }
                             }
 
-                            const lines: string[] = [];
+                            const vaultsByChain: any = {};
                             for (let chainId in assortedVaults) {
-                                lines.push(chainId+":")
+                                vaultsByChain[chainId] = {};
                                 for (let ticker in assortedVaults[chainId]) {
-                                    lines.push("    "+ticker+":");
                                     const vaults = assortedVaults[chainId][ticker];
                                     vaults.sort(
                                         (a, b) => bigIntSorter(a.data.getVaultId(), b.data.getVaultId())
                                     );
                                     const tokenData = this.tokens[ticker].chains[chainId];
-                                    vaults.forEach((vault, index) => {
+                                    vaultsByChain[chainId][ticker] = vaults.map((vault, index) => {
                                         const gasTokenData = this.addressesToTokens[chainId][vault.balances[1].token];
-                                        lines.push("        Vault "+index+":");
-                                        lines.push("            State: "+SpvVaultState[vault.state]);
-                                        lines.push("            Vault ID: "+vault.data.getVaultId());
-                                        lines.push("            Balance: "+toDecimal(vault.balances[0].scaledAmount, tokenData.decimals)+" "+ticker);
-                                        lines.push("            Gas balance: "+toDecimal(vault.balances[1].scaledAmount, gasTokenData.decimals)+" "+gasTokenData.ticker);
-                                        lines.push("            Required confirmations: "+vault.data.getConfirmations());
-                                        lines.push("            Withdrawal count: "+vault.data.getWithdrawalCount());
-                                        lines.push("            Latest SC UTXO: "+vault.data.getUtxo());
-                                        lines.push("            Latest UTXO: "+vault.getLatestUtxo());
-                                        lines.push("            Pending withdrawals ("+vault.pendingWithdrawals.length+"):");
-                                        vault.pendingWithdrawals.forEach(withdrawal => {
+                                        const pendingWithdrawals = vault.pendingWithdrawals.map(withdrawal => {
                                             const amounts = vault.fromRawAmounts(withdrawal.getTotalOutput());
-                                            lines.push("                "+withdrawal.getTxId()+":");
-                                            lines.push("                    Amount: "+toDecimal(amounts[0], tokenData.decimals)+" "+ticker);
-                                            lines.push("                    Gas amount: "+toDecimal(amounts[1], gasTokenData.decimals)+" "+gasTokenData.ticker);
+                                            return {
+                                                txId: withdrawal.getTxId(),
+                                                amount: toDecimal(amounts[0], tokenData.decimals),
+                                                gasAmount: toDecimal(amounts[1], gasTokenData.decimals),
+                                                ticker: ticker,
+                                                gasTicker: gasTokenData.ticker
+                                            };
                                         });
+                                        return {
+                                            index: index,
+                                            state: SpvVaultState[vault.state],
+                                            vaultId: vault.data.getVaultId().toString(),
+                                            balance: toDecimal(vault.balances[0].scaledAmount, tokenData.decimals),
+                                            ticker: ticker,
+                                            gasBalance: toDecimal(vault.balances[1].scaledAmount, gasTokenData.decimals),
+                                            gasTicker: gasTokenData.ticker,
+                                            requiredConfirmations: vault.data.getConfirmations(),
+                                            withdrawalCount: vault.data.getWithdrawalCount(),
+                                            latestScUtxo: vault.data.getUtxo(),
+                                            latestUtxo: vault.getLatestUtxo(),
+                                            pendingWithdrawals: pendingWithdrawals
+                                        };
                                     });
                                 }
                             }
 
-                            return lines.join("\n");
+                            return {
+                                success: true,
+                                vaults: vaultsByChain
+                            };
                         }
                     }
                 )
@@ -753,7 +831,12 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             const tokenData = this.tokens[ticker].chains[chainId];
                             const result= await this.spvSwapHandler.Vaults.createVaults(chainId, count, tokenData.address, undefined, args.feeRate);
 
-                            return "Created "+count+" new vaults, vaults will be opened as soon as the bitcoin transaction gets enough confirmations! Bitcoin txId: "+result.btcTxId;
+                            return {
+                                success: true,
+                                message: "Created " + count + " new vaults, vaults will be opened as soon as the bitcoin transaction gets enough confirmations",
+                                vaultCount: count,
+                                bitcoinTxId: result.btcTxId
+                            };
                         }
                     }
                 )
@@ -811,7 +894,11 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
 
                             const result = await this.spvSwapHandler.Vaults.fundVault(vault, rawAmounts);
 
-                            return "Funds deposited! Transaction ID: "+result;
+                            return {
+                                success: true,
+                                message: "Funds deposited",
+                                transactionId: result
+                            };
                         }
                     }
                 )
@@ -875,8 +962,12 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
 
                             const result = await this.spvSwapHandler.Vaults.withdrawFromVault(vault, rawAmounts, args.feeRate);
 
-                            return "Funds withdrawal initiated, funds will be automatically claimed when bitcoin transaction gets "+
-                                vault.data.getConfirmations()+" confirmations! Bitcoin transaction ID: "+result;
+                            return {
+                                success: true,
+                                message: "Funds withdrawal initiated, funds will be automatically claimed when bitcoin transaction gets " + vault.data.getConfirmations() + " confirmations",
+                                bitcoinTransactionId: result,
+                                requiredConfirmations: vault.data.getConfirmations()
+                            };
                         }
                     }
                 )
