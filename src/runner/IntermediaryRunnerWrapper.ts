@@ -5,7 +5,7 @@ import {
     FromBtcSwapAbs,
     FromBtcSwapState, IBitcoinWallet, ILightningWallet, ISpvVaultSigner,
     ISwapPrice, MultichainData,
-    PluginManager, SpvVault, SpvVaultState,
+    PluginManager, SpvVault, SpvVaultState, SpvVaultSwap, SpvVaultSwapState,
     SwapHandlerType,
     ToBtcLnSwapAbs,
     ToBtcLnSwapState,
@@ -594,6 +594,31 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                                         state: FromBtcSwapState[swap.state],
                                         swapFee: toDecimal(swap.swapFee, 8),
                                         address: swap.address
+                                    };
+                                    swaps.push(swapInfo);
+                                }
+                                if(_swap.type===SwapHandlerType.FROM_BTC_SPV) {
+                                    const swap = _swap as SpvVaultSwap;
+
+                                    const gasTokenData = this.addressesToTokens[swap.chainIdentifier][swap.getGasToken().toString()];
+
+                                    if(args.quotes!==1 && swap.state===SpvVaultSwapState.CREATED) continue;
+                                    const swapInfo: any = {
+                                        type: "FROM_BTC_SPV",
+                                        fromAmount: toDecimal(swap.amountBtc, 8),
+                                        fromToken: "BTC",
+                                        toAmount: toDecimal(swap.getOutputAmount(), tokenData.decimals),
+                                        toToken: tokenData.ticker,
+                                        toGasAmount: toDecimal(swap.getOutputGasAmount(), gasTokenData.decimals),
+                                        toGasToken: gasTokenData.ticker,
+                                        identifierHash: swap.getIdentifierHash(),
+                                        btcTxId: swap.btcTxId,
+                                        spvVaultId: swap.vaultId.toString(10),
+                                        state: SpvVaultSwapState[swap.state],
+                                        totalFee: toDecimal(swap.getSwapFee().inInputToken, 8),
+                                        swapFee: toDecimal(swap.getTokenSwapFee().inInputToken, 8),
+                                        gasSwapFee: toDecimal(swap.getGasSwapFee().inInputToken, 8),
+                                        address: swap.btcAddress
                                     };
                                     swaps.push(swapInfo);
                                 }
