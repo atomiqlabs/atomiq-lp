@@ -603,8 +603,13 @@ export class IntermediaryRunner extends EventEmitter {
         this.setState(IntermediaryInitState.REGISTER_HANDLERS);
         this.registerSwapHandlers();
         this.infoHandler = new InfoHandler(this.multichainData, "", this.swapHandlers);
-
         console.log("[Main]: Swap handlers registered!");
+
+        for(let chainId in this.multichainData.chains) {
+            const {signer} = this.multichainData.chains[chainId];
+            if(signer.init!=null) await signer.init();
+        }
+        console.log("[Main]: Signers initialized!");
 
         this.setState(IntermediaryInitState.INIT_HANDLERS);
         await this.initSwapHandlers();
