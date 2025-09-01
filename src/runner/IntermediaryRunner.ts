@@ -438,7 +438,7 @@ export class IntermediaryRunner extends EventEmitter {
             } catch (e) {}
 
             const ipWithDashes = address.replace(new RegExp("\\.", 'g'), "-");
-            const dnsNames = IntermediaryConfig.SSL_AUTO.DNS_PROXY.split(",").map(domain => ipWithDashes+"."+domain);
+            const dnsNames = IntermediaryConfig.SSL_AUTO.DNS_PROXY.split(",").map(domain => ipWithDashes.split(",").map(ip => ip+"."+domain)).flat();
             console.log("[Main]: Domain name: "+dnsNames.join(", "));
             const acme = new LetsEncryptACME(dnsNames, dir+"/key.pem", dir+"/cert.pem", IntermediaryConfig.SSL_AUTO.HTTP_LISTEN_PORT, IntermediaryConfig.SSL_AUTO.HTTP_LISTEN_ADDRESS);
 
