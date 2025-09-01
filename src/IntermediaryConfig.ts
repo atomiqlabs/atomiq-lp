@@ -166,6 +166,7 @@ const IntermediaryConfigTemplate = {
 
     SSL_AUTO: objectParser({
         IP_ADDRESS_FILE: stringParser(null, null, true),
+        HTTP_LISTEN_ADDRESS: stringParser(null, null, true),
         HTTP_LISTEN_PORT: numberParser(false, 0, 65535),
         DNS_PROXY: stringParser()
     }, null, true),

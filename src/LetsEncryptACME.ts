@@ -9,16 +9,18 @@ export class LetsEncryptACME {
     readonly keyFile: string;
     readonly certFile: string;
     readonly listenPort: number;
+    readonly listenAddress: string;
     readonly renewBuffer: number;
 
     renewCallback: (key: Buffer, cert: Buffer) => void;
     client: Client;
 
-    constructor(hostnames: string[], keyFile: string, certFile: string, listenPort: number = 80, renewBuffer: number = 14*24*60*60*1000) {
+    constructor(hostnames: string[], keyFile: string, certFile: string, listenPort: number = 80, listenAddress?: string, renewBuffer: number = 14*24*60*60*1000) {
         this.hostnames = hostnames;
         this.keyFile = keyFile;
         this.certFile = certFile;
         this.listenPort = listenPort;
+        this.listenAddress = listenAddress ?? "0.0.0.0";
         this.renewBuffer = renewBuffer;
     }
 
@@ -110,7 +112,7 @@ export class LetsEncryptACME {
 
                 return httpServerCreatePromise = new Promise<void>((resolve, reject) => {
                     httpServer.on("error", e => reject(e));
-                    httpServer.listen(this.listenPort, resolve);
+                    httpServer.listen(this.listenPort, this.listenAddress, resolve);
                 });
             },
             challengeRemoveFn: (authz, challenge) => {
