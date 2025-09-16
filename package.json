@@ -28,7 +28,7 @@
     "@atomiqlabs/chain-starknet": "^4.0.0-dev.14",
     "@atomiqlabs/lp-lib": "^14.0.0-dev.36",
     "@atomiqlabs/server-base": "3.0.0",
-    "@atomiqlabs/wallet-lnd": "^4.0.0-dev.23",
+    "@atomiqlabs/wallet-lnd": "^4.0.0-dev.24",
     "@coral-xyz/anchor": "0.29.0",
     "@peculiar/x509": "^1.14.0",
     "@scure/bip32": "1.6.2",

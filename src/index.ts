@@ -8,6 +8,7 @@ import {
     MultichainData, OKXSwapPrice,
 } from "@atomiqlabs/lp-lib";
 import {
+    FeeRateInclusionProbability,
     LNDBitcoinWallet,
     LNDClient,
     LNDLightningWallet,
@@ -21,6 +22,13 @@ import {Command} from "@atomiqlabs/server-base";
 import {BITCOIN_NETWORK} from "./constants/Constants";
 import {BitcoinSpvVaultSigner} from "./bitcoin/BitcoinSpvVaultSigner";
 import {BitcoinNetwork} from "@atomiqlabs/base";
+
+const targetProbabilitiesMap = {
+    "50": FeeRateInclusionProbability.Percent50,
+    "90": FeeRateInclusionProbability.Percent90,
+    "99": FeeRateInclusionProbability.Percent99,
+    "99.9": FeeRateInclusionProbability.Percent99_9,
+}
 
 async function main() {
     const directory = process.env.STORAGE_DIR;
@@ -116,7 +124,8 @@ async function main() {
             IntermediaryConfig.BITCOIND.RPC_USERNAME,
             IntermediaryConfig.BITCOIND.RPC_PASSWORD,
             IntermediaryConfig.BITCOIND?.ADD_NETWORK_FEE,
-            IntermediaryConfig.BITCOIND?.MULTIPLY_NETWORK_FEE
+            IntermediaryConfig.BITCOIND?.MULTIPLY_NETWORK_FEE,
+            IntermediaryConfig.BITCOIND?.FEE_ESTIMATION_PERCENTILE==null ? undefined : targetProbabilitiesMap[IntermediaryConfig.BITCOIND.FEE_ESTIMATION_PERCENTILE]
         );
         lndClient = new LNDClient(IntermediaryConfig.LND);
         const directory = process.env.STORAGE_DIR;

@@ -37,7 +37,8 @@ const IntermediaryConfigTemplate = {
         RPC_PASSWORD: stringParser(),
         NETWORK: enumParser<"mainnet" | "testnet" | "testnet4" | "regtest">(["mainnet", "testnet", "testnet4", "regtest"]),
         ADD_NETWORK_FEE: numberParser(true, 0, null, true),
-        MULTIPLY_NETWORK_FEE: numberParser(true, 0, null, true)
+        MULTIPLY_NETWORK_FEE: numberParser(true, 0, null, true),
+        FEE_ESTIMATION_PERCENTILE: enumParser(["50", "90", "99", "99.9"], true)
     }),
 
     LND: objectParser({
