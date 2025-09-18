@@ -17,6 +17,7 @@ import {getStarknetSigner} from "./signer/StarknetSigner";
 import {constants} from "starknet";
 import {StarknetChainEvents} from "@atomiqlabs/chain-starknet/dist/starknet/events/StarknetChainEvents";
 import {ChainSwapType} from "@atomiqlabs/base";
+import {StarknetPersistentSigner} from "@atomiqlabs/chain-starknet/dist/starknet/wallet/StarknetPersistentSigner";
 
 const template = {
     RPC_URL: stringParser(),
@@ -88,7 +89,7 @@ export const StarknetChainInitializer: ChainInitializer<StarknetChainType, any, 
 
         const chainEvents = new StarknetChainEvents(directory, chainInterface, swapContract, spvVaultContract);
 
-        const signer = new StarknetSigner(starknetSigner);
+        const signer = new StarknetPersistentSigner(starknetSigner, chainInterface, directory+"/STARKNET");
 
         return {
             signer,
