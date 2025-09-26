@@ -48,11 +48,8 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
 
     fromReadableToken(txt: string) {
         const arr = txt.split("-");
-        if(arr.length>1) {
-            return {ticker: txt.substring(arr[0].length+1), chainId: arr[0]}
-        } else {
-            return {ticker: txt, chainId: this.multichainData.default};
-        }
+        if(arr.length<2) throw new Error("Unknown token, use format <chain>-<ticker>");
+        return {ticker: txt.substring(arr[0].length+1), chainId: arr[0]};
     }
 
     toReadableToken(chainId: string, ticker: string) {

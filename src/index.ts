@@ -147,8 +147,7 @@ async function main() {
         };
     }
     const multiChainData: MultichainData = {
-        chains,
-        default: process.env.DEFAULT_CHAIN
+        chains
     };
 
     //Check token addresses are valid
@@ -166,7 +165,10 @@ async function main() {
         for(let chainId in assetData.chains) {
             const {address} = assetData.chains[chainId];
             const chainData = chains[chainId];
-            if(chainData==null) throw new Error("Unknown chain identifier ("+chainId+") while checking tokens, known chains: "+Object.keys(chains).join());
+            if(chainData==null) {
+                console.error("Unknown chain identifier ("+chainId+") while checking tokens, known chains: "+Object.keys(chains).join());
+                continue;
+            }
             try {
                 chainData.chainInterface.isValidToken(address);
             } catch (e) {

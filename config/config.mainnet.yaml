@@ -131,7 +131,7 @@ REST:
 
 SSL_AUTO:
   HTTP_LISTEN_PORT: 80
-  DNS_PROXY: "nip.io"
+  DNS_PROXY: "nodes.atomiq.exchange"
 
 #SSL:
 #  CERT_FILE: "./server.cert"

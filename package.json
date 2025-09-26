@@ -25,7 +25,7 @@
     "@atomiqlabs/btc-bitcoind": "^9.0.0",
     "@atomiqlabs/chain-solana": "^11.0.0",
     "@atomiqlabs/chain-starknet": "^5.1.0",
-    "@atomiqlabs/lp-lib": "^15.0.4",
+    "@atomiqlabs/lp-lib": "^15.0.14",
     "@atomiqlabs/server-base": "^3.0.0",
     "@atomiqlabs/wallet-lnd": "^5.0.2",
     "@coral-xyz/anchor": "0.29.0",
