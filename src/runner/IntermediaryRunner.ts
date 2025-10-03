@@ -416,30 +416,38 @@ export class IntermediaryRunner extends EventEmitter {
         if(IntermediaryConfig.SSL_AUTO!=null) {
             console.log("[Main]: Using automatic SSL cert provision through Let's Encrypt & dns proxy: "+IntermediaryConfig.SSL_AUTO.DNS_PROXY);
             useSsl = true;
-            let address: string;
-            if(IntermediaryConfig.SSL_AUTO.IP_ADDRESS_FILE!=null) {
-                try {
-                    const addressBuff = await fs.readFile(IntermediaryConfig.SSL_AUTO.IP_ADDRESS_FILE);
-                    address = addressBuff.toString();
-                } catch (e) {
-                    console.error(e);
-                    throw new Error("Cannot read SSL_AUTO.IP_ADDRESS_FILE");
+
+            let dnsNames: string[];
+
+            if(IntermediaryConfig.SSL_AUTO.FULL_DNS_DOMAIN!=null) {
+                dnsNames = IntermediaryConfig.SSL_AUTO.FULL_DNS_DOMAIN.split(",");
+            } else {let address: string;
+                if(IntermediaryConfig.SSL_AUTO.IP_ADDRESS_FILE!=null) {
+                    try {
+                        const addressBuff = await fs.readFile(IntermediaryConfig.SSL_AUTO.IP_ADDRESS_FILE);
+                        address = addressBuff.toString();
+                    } catch (e) {
+                        console.error(e);
+                        throw new Error("Cannot read SSL_AUTO.IP_ADDRESS_FILE");
+                    }
+                } else {
+                    //@ts-ignore
+                    const publicIpLib = await eval("import(\"public-ip\")");
+                    address = await publicIpLib.publicIpv4();
                 }
-            } else {
-                //@ts-ignore
-                const publicIpLib = await eval("import(\"public-ip\")");
-                address = await publicIpLib.publicIpv4();
+                if(address==null) throw new Error("Cannot get IP address of the node!");
+                console.log("[Main]: IP address: "+address);
+
+                const ipWithDashes = address.replace(new RegExp("\\.", 'g'), "-");
+                dnsNames = IntermediaryConfig.SSL_AUTO.DNS_PROXY.split(",").map(domain => ipWithDashes.split(",").map(ip => ip+"."+domain)).flat();
             }
-            if(address==null) throw new Error("Cannot get IP address of the node!");
-            console.log("[Main]: IP address: "+address);
+
+            console.log("[Main]: Domain name: "+dnsNames.join(", "));
+
             const dir = this.directory+"/ssl";
             try {
                 await fs.mkdir(dir);
             } catch (e) {}
-
-            const ipWithDashes = address.replace(new RegExp("\\.", 'g'), "-");
-            const dnsNames = IntermediaryConfig.SSL_AUTO.DNS_PROXY.split(",").map(domain => ipWithDashes.split(",").map(ip => ip+"."+domain)).flat();
-            console.log("[Main]: Domain name: "+dnsNames.join(", "));
             const acme = new LetsEncryptACME(dnsNames, dir+"/key.pem", dir+"/cert.pem", IntermediaryConfig.SSL_AUTO.HTTP_LISTEN_PORT, IntermediaryConfig.SSL_AUTO.HTTP_LISTEN_ADDRESS);
 
             const url = "https://"+dnsNames[0]+":"+listenPort;

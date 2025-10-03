@@ -168,8 +168,11 @@ const IntermediaryConfigTemplate = {
         IP_ADDRESS_FILE: stringParser(null, null, true),
         HTTP_LISTEN_ADDRESS: stringParser(null, null, true),
         HTTP_LISTEN_PORT: numberParser(false, 0, 65535),
-        DNS_PROXY: stringParser()
-    }, null, true),
+        DNS_PROXY: stringParser(null, null, true),
+        FULL_DNS_DOMAIN: stringParser(null, null, true)
+    }, (obj) => {
+        if(obj.DNS_PROXY==null && obj.FULL_DNS_DOMAIN==null) throw new Error("Either DNS_PROXY or FULL_DNS_DOMAIN needs to be specified!");
+    }, true),
 
     PLUGINS: dictionaryParser(
         stringParser(),
