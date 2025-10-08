@@ -165,13 +165,18 @@ const IntermediaryConfigTemplate = {
     }, null, true),
 
     SSL_AUTO: objectParser({
+        ACME_METHOD: enumParser<"http-01" | "tls-alpn-01">(["http-01", "tls-alpn-01"], true),
+
         IP_ADDRESS_FILE: stringParser(null, null, true),
+
         HTTP_LISTEN_ADDRESS: stringParser(null, null, true),
-        HTTP_LISTEN_PORT: numberParser(false, 0, 65535),
+        HTTP_LISTEN_PORT: numberParser(false, 0, 65535, true),
+
         DNS_PROXY: stringParser(null, null, true),
         FULL_DNS_DOMAIN: stringParser(null, null, true)
     }, (obj) => {
         if(obj.DNS_PROXY==null && obj.FULL_DNS_DOMAIN==null) throw new Error("Either DNS_PROXY or FULL_DNS_DOMAIN needs to be specified!");
+        if((obj.ACME_METHOD==null || obj.ACME_METHOD==="http-01") && obj.HTTP_LISTEN_PORT==null) throw new Error("HTTP_LISTEN_PORT needs to be configured when using `http-01` ACME method!");
     }, true),
 
     PLUGINS: dictionaryParser(

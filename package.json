@@ -29,6 +29,7 @@
     "@atomiqlabs/server-base": "^3.0.0",
     "@atomiqlabs/wallet-lnd": "^5.0.2",
     "@coral-xyz/anchor": "0.29.0",
+    "@peculiar/x509": "^1.14.0",
     "@scure/bip32": "1.6.2",
     "@scure/bip39": "1.5.4",
     "@scure/starknet": "1.1.0",
@@ -46,6 +47,6 @@
   },
   "devDependencies": {
     "@types/express": "4.17.21",
-    "@types/node": "^18.15.5"
+    "@types/node": "^24.7.0"
   }
 }

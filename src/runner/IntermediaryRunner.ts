@@ -6,7 +6,7 @@ import {
     SAFETY_FACTOR
 } from "../constants/Constants";
 import {IntermediaryConfig} from "../IntermediaryConfig";
-import * as http2 from "http2";
+import * as http2 from "node:http2";
 import * as fs from "fs/promises";
 import {
     FromBtcAbs,
@@ -26,13 +26,14 @@ import {BitcoinRpc, BtcSyncInfo} from "@atomiqlabs/base";
 import http2Express from "http2-express-bridge";
 import * as express from "express";
 import * as cors from "cors";
-import {LetsEncryptACME} from "../LetsEncryptACME";
+import {generateAlpnChallengeCert, LetsEncryptACME} from "../LetsEncryptACME";
 import * as tls from "node:tls";
 import {EventEmitter} from "node:events";
 import {fromDecimal} from "@atomiqlabs/server-base";
 import {createHttpRateLimiter} from "../http/HttpRateLimiter";
 import {createConnectionRateLimiter} from "../http/ConnectionRateLimiter";
 import {createBodySizeLimiter} from "../http/BodySizeLimiter";
+import {SecureContext} from "node:tls";
 
 export enum IntermediaryInitState {
     STARTING="starting",
@@ -393,29 +394,69 @@ export class IntermediaryRunner extends EventEmitter {
     }
 
     async startRestServer() {
-
-        let useSsl = false;
-        let key: Buffer;
-        let cert: Buffer;
-
-        let server: http2.Http2Server | http2.Http2SecureServer;
-
-        const renewCallback = (_key: Buffer, _cert: Buffer) => {
-            key = _key;
-            cert = _cert;
-            if(server instanceof tls.Server) {
-                server.setSecureContext({
-                    key,
-                    cert
-                });
-            }
-        }
+        const useSsl = IntermediaryConfig.SSL!=null || IntermediaryConfig.SSL_AUTO!=null;
 
         const listenPort = IntermediaryConfig.REST.PORT;
 
+        const restServer = http2Express(express) as express.Express;
+        restServer.use(createBodySizeLimiter(8*1024));
+        restServer.use(createHttpRateLimiter(IntermediaryConfig.REST.REQUEST_LIMIT?.LIMIT, IntermediaryConfig.REST.REQUEST_LIMIT?.WINDOW_MS));
+        restServer.use(createConnectionRateLimiter(IntermediaryConfig.REST.CONNECTION_LIMIT));
+        restServer.use(cors());
+
+        for(let swapHandler of this.swapHandlers) {
+            swapHandler.startRestServer(restServer);
+        }
+        this.infoHandler.startRestServer(restServer);
+
+        await PluginManager.onHttpServerStarted(restServer);
+
+        const mappedSecureContexts: Map<string, SecureContext> = new Map();
+        let defaultSecureContext: SecureContext;
+
+        let server: http2.Http2Server | http2.Http2SecureServer;
+        if(!useSsl) {
+            server = http2.createServer(restServer);
+        } else {
+            server = http2.createSecureServer({
+                allowHTTP1: true,
+                ALPNCallback: ({servername, protocols}) => {
+                    // console.log(`[IntermediaryRunner: TLS]: ALPNCallback: Request servername: ${servername}, protocols: ${protocols.join(", ")}`);
+                    if(protocols.includes("acme-tls/1")) return "acme-tls/1";
+                    if(protocols.includes("h2")) return "h2";
+                    if(protocols.includes("http/1.1")) return "http/1.1";
+                    return undefined;
+                },
+                SNICallback: (servername: string, cb: (err: Error | null, ctx?: SecureContext) => void) => {
+                    // console.log(`[IntermediaryRunner: TLS]: SNICallback: Request servername: ${servername}`);
+                    const secureContextToUse = mappedSecureContexts.get(servername);
+                    if(secureContextToUse!=null) {
+                        cb(null, secureContextToUse);
+                        return;
+                    }
+                    cb(null, defaultSecureContext);
+                }
+            }, restServer);
+        }
+
+        server.setTimeout(IntermediaryConfig.REST.CONNECTION_TIMEOUT_MS ?? 15 * 1000);
+
+        await new Promise<void>((resolve, reject) => {
+            server.on("error", e => reject(e));
+            server.listen(listenPort, IntermediaryConfig.REST.ADDRESS, () => resolve());
+        });
+
+        console.log("[Main]: Rest server listening on port: "+listenPort+" ssl: "+useSsl);
+
+        const renewCallback = (_key: Buffer, _cert: Buffer) => {
+            defaultSecureContext = tls.createSecureContext({
+                key: _key,
+                cert: _cert,
+            });
+        }
+
         if(IntermediaryConfig.SSL_AUTO!=null) {
             console.log("[Main]: Using automatic SSL cert provision through Let's Encrypt & dns proxy: "+IntermediaryConfig.SSL_AUTO.DNS_PROXY);
-            useSsl = true;
 
             let dnsNames: string[];
 
@@ -448,7 +489,13 @@ export class IntermediaryRunner extends EventEmitter {
             try {
                 await fs.mkdir(dir);
             } catch (e) {}
-            const acme = new LetsEncryptACME(dnsNames, dir+"/key.pem", dir+"/cert.pem", IntermediaryConfig.SSL_AUTO.HTTP_LISTEN_PORT, IntermediaryConfig.SSL_AUTO.HTTP_LISTEN_ADDRESS);
+            const acme = new LetsEncryptACME(dnsNames, dir+"/key.pem", dir+"/cert.pem", {
+                challengeType: IntermediaryConfig.SSL_AUTO.ACME_METHOD ?? "http-01",
+                httpListenPort: IntermediaryConfig.SSL_AUTO.HTTP_LISTEN_PORT,
+                httpListenAddress: IntermediaryConfig.SSL_AUTO.HTTP_LISTEN_ADDRESS,
+                addAlpnChallenge: (domain, secureContext) => mappedSecureContexts.set(domain, secureContext),
+                removeAlpnChallenge: (domain) => mappedSecureContexts.delete(domain)
+            });
 
             const url = "https://"+dnsNames[0]+":"+listenPort;
             this.sslAutoUrl = url;
@@ -458,10 +505,8 @@ export class IntermediaryRunner extends EventEmitter {
         }
         if(IntermediaryConfig.SSL!=null) {
             console.log("[Main]: Using existing SSL certs");
-            useSsl = true;
 
-            key = await fs.readFile(IntermediaryConfig.SSL.KEY_FILE);
-            cert = await fs.readFile(IntermediaryConfig.SSL.CERT_FILE);
+            renewCallback(await fs.readFile(IntermediaryConfig.SSL.KEY_FILE), await fs.readFile(IntermediaryConfig.SSL.CERT_FILE));
 
             (async() => {
                 for await (let change of fs.watch(IntermediaryConfig.SSL.KEY_FILE)) {
@@ -496,41 +541,6 @@ export class IntermediaryRunner extends EventEmitter {
                 }
             })();
         }
-
-        const restServer = http2Express(express) as express.Express;
-        restServer.use(createBodySizeLimiter(8*1024));
-        restServer.use(createHttpRateLimiter(IntermediaryConfig.REST.REQUEST_LIMIT?.LIMIT, IntermediaryConfig.REST.REQUEST_LIMIT?.WINDOW_MS));
-        restServer.use(createConnectionRateLimiter(IntermediaryConfig.REST.CONNECTION_LIMIT));
-        restServer.use(cors());
-
-        for(let swapHandler of this.swapHandlers) {
-            swapHandler.startRestServer(restServer);
-        }
-        this.infoHandler.startRestServer(restServer);
-
-        await PluginManager.onHttpServerStarted(restServer);
-
-        if(!useSsl) {
-            server = http2.createServer(restServer);
-        } else {
-            server = http2.createSecureServer(
-                {
-                    key,
-                    cert,
-                    allowHTTP1: true
-                },
-                restServer
-            );
-        }
-
-        server.setTimeout(IntermediaryConfig.REST.CONNECTION_TIMEOUT_MS ?? 15 * 1000);
-
-        await new Promise<void>((resolve, reject) => {
-            server.on("error", e => reject(e));
-            server.listen(listenPort, IntermediaryConfig.REST.ADDRESS, () => resolve());
-        });
-
-        console.log("[Main]: Rest server listening on port: "+listenPort+" ssl: "+useSsl);
     }
 
     async init() {
