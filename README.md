@@ -1,5 +1,7 @@
 # SolLightning intermediary (TypeScript)
 
+NOTE: Needs to run the latest Node.JS 24.9 because of the peculiarities in the http2 server in the prior versions!
+
 An off-chain app handling BTC <-> Solana cross-chain swaps, utilizing [SolLightning-program](https://github.com/adambor/SolLightning-program) Solana on-chain program.
 
 Principle of operation is described in depth [here](https://github.com/adambor/SolLightning-readme/blob/main/sol-submarine-swaps.md) (for lightning network swaps) and [here](https://github.com/adambor/SolLightning-readme/blob/main/sol-onchain-swaps.md) (for bitcoin on-chain swaps)
@@ -20,7 +22,7 @@ REST_PORT="4001"
 ## Requirements
 * bitcoind node
 * lnd node (Install instructions [here](https://github.com/lightningnetwork/lnd/blob/master/docs/INSTALL.md))
-* nodejs (requires v18 or higher)
+* nodejs (requires v24 or higher)
 * npm
 * typescript
 

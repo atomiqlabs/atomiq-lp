@@ -420,13 +420,13 @@ export class IntermediaryRunner extends EventEmitter {
         } else {
             server = http2.createSecureServer({
                 allowHTTP1: true,
-                ALPNCallback: ({servername, protocols}) => {
+                ALPNCallback: IntermediaryConfig.SSL_AUTO?.ACME_METHOD==="tls-alpn-01" ? ({servername, protocols}) => {
                     // console.log(`[IntermediaryRunner: TLS]: ALPNCallback: Request servername: ${servername}, protocols: ${protocols.join(", ")}`);
                     if(protocols.includes("acme-tls/1")) return "acme-tls/1";
                     if(protocols.includes("h2")) return "h2";
                     if(protocols.includes("http/1.1")) return "http/1.1";
                     return undefined;
-                },
+                } : undefined,
                 SNICallback: (servername: string, cb: (err: Error | null, ctx?: SecureContext) => void) => {
                     // console.log(`[IntermediaryRunner: TLS]: SNICallback: Request servername: ${servername}`);
                     const secureContextToUse = mappedSecureContexts.get(servername);
