@@ -3,7 +3,7 @@ import {
     numberParser,
     objectParser,
     stringParser,
-    enumParser
+    enumParser, decimalToBigIntParser
 } from "@atomiqlabs/server-base";
 import {
     initializeCitrea,
@@ -16,6 +16,8 @@ import * as WebSocket from "ws";
 import {EVMPersistentSigner} from "@atomiqlabs/chain-evm/dist/evm/wallet/EVMPersistentSigner";
 
 const template = {
+    MIN_NATIVE_RESERVE: decimalToBigIntParser(18, 0, undefined, true),
+
     RPC_URL: stringParser(),
     MAX_LOGS_BLOCK_RANGE: numberParser(false, 1, undefined, true),
     MAX_LOGS_TOPICS: numberParser(false, 1, undefined, true),
@@ -67,6 +69,7 @@ export const CitreaChainInitializer: ChainInitializer<CitreaChainType, any, type
         const signer = new EVMPersistentSigner(evmSigner, evmSigner.address, chainInterface, directory+"/CITREA", 0n, 100_000n, 15*1000);
 
         return {
+            minNativeBalanceReserve: configuration.MIN_NATIVE_RESERVE,
             signer,
             swapContract,
             chainEvents,

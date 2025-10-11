@@ -85,9 +85,10 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
         bitcoinRpc: BitcoinRpc<any>,
         bitcoinWallet: IBitcoinWallet,
         lightningWallet: ILightningWallet,
-        spvVaultSigner: ISpvVaultSigner
+        spvVaultSigner: ISpvVaultSigner,
+        minChainBalanceReserves: {[chainId: string]: bigint}
     ) {
-        super(directory, multichainData, tokens, prices, bitcoinRpc, bitcoinWallet, lightningWallet, spvVaultSigner);
+        super(directory, multichainData, tokens, prices, bitcoinRpc, bitcoinWallet, lightningWallet, spvVaultSigner, minChainBalanceReserves);
         this.lpRegistry = new Registry(directory+"/lpRegistration.txt");
         this.addressesToTokens = {};
         const tokenTickers = [];

@@ -93,6 +93,8 @@ export class IntermediaryRunner extends EventEmitter {
     spvSwapHandler: SpvVaultSwapHandler;
     infoHandler: InfoHandler;
 
+    readonly minChainBalanceReserves: {[chainId: string]: bigint};
+
     initState: IntermediaryInitState = IntermediaryInitState.STARTING;
     sslAutoUrl: string;
 
@@ -121,7 +123,8 @@ export class IntermediaryRunner extends EventEmitter {
         bitcoinRpc: BitcoinRpc<any>,
         bitcoinWallet: IBitcoinWallet,
         lightningWallet: ILightningWallet,
-        spvVaultSigner: ISpvVaultSigner
+        spvVaultSigner: ISpvVaultSigner,
+        minChainBalanceReserves: {[chainId: string]: bigint}
     ) {
         super();
         this.directory = directory;
@@ -132,6 +135,7 @@ export class IntermediaryRunner extends EventEmitter {
         this.bitcoinWallet = bitcoinWallet;
         this.lightningWallet = lightningWallet;
         this.spvVaultSigner = spvVaultSigner;
+        this.minChainBalanceReserves = minChainBalanceReserves;
     }
 
     /**
@@ -196,13 +200,15 @@ export class IntermediaryRunner extends EventEmitter {
             swapCheckInterval: 5*60*1000,
             refundAuthorizationTimeout: REFUND_AUTHORIZATION_TIMEOUT,
             gracePeriod: GRACE_PERIOD,
-            securityDepositAPY: Number(IntermediaryConfig.SECURITY_DEPOSIT_APY ?? IntermediaryConfig.SOLANA.SECURITY_DEPOSIT_APY)/1000000
+            securityDepositAPY: Number(IntermediaryConfig.SECURITY_DEPOSIT_APY ?? IntermediaryConfig.SOLANA.SECURITY_DEPOSIT_APY)/1000000,
+            minNativeBalances: this.minChainBalanceReserves
         };
 
         if(IntermediaryConfig.ONCHAIN!=null) {
             const swapConfig = {
                 baseFee: IntermediaryConfig.ONCHAIN.BASE_FEE,
-                feePPM: IntermediaryConfig.ONCHAIN.FEE_PERCENTAGE
+                feePPM: IntermediaryConfig.ONCHAIN.FEE_PERCENTAGE,
+                maxInflightSwaps: IntermediaryConfig.ONCHAIN.MAX_INFLIGHT_SWAPS
             };
             const tobtc = new ToBtcAbs(
                 new IntermediaryStorageManager(this.directory + "/tobtc"),
@@ -257,6 +263,7 @@ export class IntermediaryRunner extends EventEmitter {
             const gasTokenMax = {};
             for(let chainId in IntermediaryConfig.ONCHAIN_SPV.GAS_MAX) {
                 if(IntermediaryConfig.ONCHAIN_SPV.GAS_MAX[chainId]==null) continue;
+                if(this.multichainData.chains[chainId]==null) continue;
                 const tokenData = this.prices.getTokenData(this.multichainData.chains[chainId].chainInterface.getNativeCurrencyAddress(), chainId);
                 gasTokenMax[chainId] = fromDecimal(IntermediaryConfig.ONCHAIN_SPV.GAS_MAX[chainId].toFixed(tokenData.decimals), tokenData.decimals);
             }
@@ -265,7 +272,8 @@ export class IntermediaryRunner extends EventEmitter {
                 feePPM: IntermediaryConfig.ONCHAIN_SPV.FEE_PERCENTAGE,
                 max: IntermediaryConfig.ONCHAIN_SPV.MAX,
                 min: IntermediaryConfig.ONCHAIN_SPV.MIN,
-                gasTokenMax
+                gasTokenMax,
+                maxInflightSwaps: IntermediaryConfig.ONCHAIN_SPV.MAX_INFLIGHT_SWAPS
             };
 
             if(this.spvVaultSigner!=null) {
@@ -296,7 +304,7 @@ export class IntermediaryRunner extends EventEmitter {
                 baseFee: IntermediaryConfig.LN.BASE_FEE,
                 feePPM: IntermediaryConfig.LN.FEE_PERCENTAGE,
                 max: IntermediaryConfig.LN.MAX,
-                min: IntermediaryConfig.LN.MIN,
+                min: IntermediaryConfig.LN.MIN
             };
             const tobtcln = new ToBtcLnAbs(
                 new IntermediaryStorageManager(this.directory+"/tobtcln"),
@@ -314,6 +322,7 @@ export class IntermediaryRunner extends EventEmitter {
 
                     allowShortExpiry: IntermediaryConfig.LN.ALLOW_LN_SHORT_EXPIRY,
                     allowProbeFailedSwaps: IntermediaryConfig.LN.ALLOW_NON_PROBABLE_SWAPS,
+                    maxInflightSwaps: IntermediaryConfig.LN.MAX_INFLIGHT_SWAPS
 
                     lnSendBitcoinBlockTimeSafetyFactorPPM: LN_SAFETY_FACTOR_OVERRIDE_PPM
                 }
@@ -333,7 +342,8 @@ export class IntermediaryRunner extends EventEmitter {
                     minCltv: 20n,
 
                     swapCheckInterval: 1*60*1000,
-                    invoiceTimeoutSeconds: IntermediaryConfig.LN.INVOICE_EXPIRY_SECONDS
+                    invoiceTimeoutSeconds: IntermediaryConfig.LN.INVOICE_EXPIRY_SECONDS,
+                    maxInflightSwaps: IntermediaryConfig.LN.MAX_INFLIGHT_SWAPS
                 }
             );
             removeAllowedAssets(frombtcln, IntermediaryConfig.LN.EXCLUDE_ASSETS);
@@ -341,6 +351,7 @@ export class IntermediaryRunner extends EventEmitter {
             const gasTokenMax = {};
             for(let chainId in IntermediaryConfig.LN.GAS_MAX) {
                 if(IntermediaryConfig.LN.GAS_MAX[chainId]==null) continue;
+                if(this.multichainData.chains[chainId]==null) continue;
                 const tokenData = this.prices.getTokenData(this.multichainData.chains[chainId].chainInterface.getNativeCurrencyAddress(), chainId);
                 gasTokenMax[chainId] = fromDecimal(IntermediaryConfig.LN.GAS_MAX[chainId].toFixed(tokenData.decimals), tokenData.decimals);
             }
@@ -360,7 +371,8 @@ export class IntermediaryRunner extends EventEmitter {
 
                     swapCheckInterval: 1*60*1000,
                     invoiceTimeoutSeconds: IntermediaryConfig.LN.INVOICE_EXPIRY_SECONDS,
-                    gasTokenMax
+                    gasTokenMax,
+                    maxInflightSwaps: IntermediaryConfig.LN.MAX_INFLIGHT_AUTO_SWAPS ?? IntermediaryConfig.LN.MAX_INFLIGHT_SWAPS
                 }
             );
             removeAllowedAssets(frombtclnAuto, IntermediaryConfig.LN.EXCLUDE_ASSETS);
@@ -384,7 +396,9 @@ export class IntermediaryRunner extends EventEmitter {
 
                         doubleSpendCheckInterval: 5000,
                         swapAddressExpiry: IntermediaryConfig.ONCHAIN_TRUSTED.SWAP_EXPIRY_SECONDS ?? 3*3600,
-                        recommendFeeMultiplier: 1
+                        recommendFeeMultiplier: 1,
+
+                        maxInflightSwaps: IntermediaryConfig.ONCHAIN_TRUSTED.MAX_INFLIGHT_SWAPS
                     }
                 )
             );
@@ -407,7 +421,9 @@ export class IntermediaryRunner extends EventEmitter {
                         minCltv: 20n,
 
                         swapCheckInterval: 1*60*1000,
-                        invoiceTimeoutSeconds: IntermediaryConfig.LN_TRUSTED.INVOICE_EXPIRY_SECONDS
+                        invoiceTimeoutSeconds: IntermediaryConfig.LN_TRUSTED.INVOICE_EXPIRY_SECONDS,
+
+                        maxInflightSwaps: IntermediaryConfig.LN_TRUSTED.MAX_INFLIGHT_SWAPS
                     }
                 )
             );

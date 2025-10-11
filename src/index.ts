@@ -144,12 +144,15 @@ async function main() {
     }
 
     //Create multichain data object
+    const minChainBalanceReserves: {[chainId: string]: bigint} = {};
     const chains: {[chainId: string]: ChainData & {commands?: Command<any>[]}} = {};
     const registeredChains: {[chainId: string]: ChainInitializer<any, any, any>} = RegisteredChains;
     for(let chainId in registeredChains) {
         if(IntermediaryConfig[chainId]==null) continue;
+        const loadedChain = registeredChains[chainId].loadChain(IntermediaryConfig[chainId], bitcoinRpc, bitcoinNetwork);
+        if(loadedChain.minNativeBalanceReserve!=null) minChainBalanceReserves[chainId] = loadedChain.minNativeBalanceReserve;
         chains[chainId] = {
-            ...registeredChains[chainId].loadChain(IntermediaryConfig[chainId], bitcoinRpc, bitcoinNetwork),
+            ...loadedChain,
             allowedTokens: allowedTokens[chainId] ?? [],
             allowedDepositTokens: allowedDepositTokens[chainId],
             tokenMultipliers: tokenMultipliers[chainId]
@@ -195,7 +198,8 @@ async function main() {
         bitcoinRpc,
         bitcoinWallet,
         lightningWallet,
-        spvVaultSigner
+        spvVaultSigner,
+        minChainBalanceReserves
     );
     for(let chainId in chains) {
         if(chains[chainId].commands!=null) chains[chainId].commands.forEach(cmd => runner.cmdHandler.registerCommand(cmd));

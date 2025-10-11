@@ -3,14 +3,14 @@ import {
     numberParser,
     objectParser,
     stringParser,
-    enumParser
+    enumParser, decimalToBigIntParser
 } from "@atomiqlabs/server-base";
 import {
     RpcProviderWithRetries,
     StarknetBtcRelay, StarknetChainInterface,
     StarknetChainType,
     StarknetFees,
-    StarknetSigner, StarknetSpvVaultContract,
+    StarknetSpvVaultContract,
     StarknetSwapContract
 } from "@atomiqlabs/chain-starknet";
 import {getStarknetSigner} from "./signer/StarknetSigner";
@@ -20,6 +20,8 @@ import {ChainSwapType} from "@atomiqlabs/base";
 import {StarknetPersistentSigner} from "@atomiqlabs/chain-starknet/dist/starknet/wallet/StarknetPersistentSigner";
 
 const template = {
+    MIN_NATIVE_RESERVE: decimalToBigIntParser(18, 0, undefined, true),
+
     RPC_URL: stringParser(),
     MAX_L1_FEE_GWEI: numberParser(false, 0),
     MAX_L2_FEE_GWEI: numberParser(false, 0),
@@ -92,6 +94,7 @@ export const StarknetChainInitializer: ChainInitializer<StarknetChainType, any, 
         const signer = new StarknetPersistentSigner(starknetSigner, chainInterface, directory+"/STARKNET");
 
         return {
+            minNativeBalanceReserve: configuration.MIN_NATIVE_RESERVE,
             signer,
             swapContract,
             chainEvents,
