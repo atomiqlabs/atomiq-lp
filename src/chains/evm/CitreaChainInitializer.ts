@@ -38,7 +38,9 @@ export const CitreaChainInitializer: ChainInitializer<CitreaChainType, any, type
     loadChain: (configuration, bitcoinRpc, bitcoinNetwork) => {
         const directory = process.env.STORAGE_DIR;
 
-        const provider = configuration.RPC_URL.startsWith("ws")
+        const usesRpcOverWs = configuration.RPC_URL.startsWith("ws");
+
+        const provider = usesRpcOverWs
             ? new WebSocketProviderWithRetries(() => new WebSocket(configuration.RPC_URL))
             : new JsonRpcProviderWithRetries(configuration.RPC_URL);
 
@@ -63,7 +65,7 @@ export const CitreaChainInitializer: ChainInitializer<CitreaChainType, any, type
 
         const chainEvents = new EVMChainEvents(
             directory, chainInterface, swapContract, spvVaultContract,
-            configuration.RPC_URL.startsWith("ws") ? 30 : undefined //We don't need to check that often when using websocket
+            usesRpcOverWs ? 30 : undefined //We don't need to check that often when using websocket
         );
 
         const signer = new EVMPersistentSigner(evmSigner, evmSigner.address, chainInterface, directory+"/CITREA", 0n, 100_000n, 15*1000);
