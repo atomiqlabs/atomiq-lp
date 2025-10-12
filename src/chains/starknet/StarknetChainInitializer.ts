@@ -55,7 +55,7 @@ export const StarknetChainInitializer: ChainInitializer<StarknetChainType, any, 
         const chainId = configuration.CHAIN==="MAIN" ? constants.StarknetChainId.SN_MAIN : constants.StarknetChainId.SN_SEPOLIA;
 
         const provider = new RpcProviderWithRetries({nodeUrl: configuration.RPC_URL});
-        const wsChannel = configuration.WS_URL==null ? null : new WebSocketChannel({nodeUrl: configuration.WS_URL, websocket: require("ws")});
+        const wsChannel = configuration.WS_URL==null ? null : new WebSocketChannel({nodeUrl: configuration.WS_URL});
         const starknetSigner = getStarknetSigner(configuration, provider);
 
         const starknetFees = new StarknetFees(provider, {
