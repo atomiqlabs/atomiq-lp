@@ -11,7 +11,7 @@ import {
     StarknetChainType,
     StarknetFees,
     StarknetSpvVaultContract,
-    StarknetSwapContract
+    StarknetSwapContract, WebSocketChannelWithRetries
 } from "@atomiqlabs/chain-starknet";
 import {getStarknetSigner} from "./signer/StarknetSigner";
 import {constants, WebSocketChannel} from "starknet";
@@ -55,7 +55,7 @@ export const StarknetChainInitializer: ChainInitializer<StarknetChainType, any, 
         const chainId = configuration.CHAIN==="MAIN" ? constants.StarknetChainId.SN_MAIN : constants.StarknetChainId.SN_SEPOLIA;
 
         const provider = new RpcProviderWithRetries({nodeUrl: configuration.RPC_URL});
-        const wsChannel = configuration.WS_URL==null ? null : new WebSocketChannel({nodeUrl: configuration.WS_URL});
+        const wsChannel = configuration.WS_URL==null ? null : new WebSocketChannelWithRetries({nodeUrl: configuration.WS_URL, reconnectOptions: {delay: 2000, retries: Infinity}});
         const starknetSigner = getStarknetSigner(configuration, provider);
 
         const starknetFees = new StarknetFees(provider, {
