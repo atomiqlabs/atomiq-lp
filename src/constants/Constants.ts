@@ -20,6 +20,9 @@ export const BITCOIN_BLOCKTIME = BigInt(process.env.BITCOIN_BLOCKTIME);
 //Swap safety
 export const GRACE_PERIOD = BigInt(process.env.GRACE_PERIOD);
 export const SAFETY_FACTOR = BigInt(process.env.SAFETY_FACTOR);
+export const LN_SAFETY_FACTOR_OVERRIDE_PPM: bigint | null = process.env.LN_SAFETY_FACTOR_OVERRIDE_PPM==null
+    ? null
+    : BigInt(process.env.LN_SAFETY_FACTOR_OVERRIDE_PPM);
 export const CHAIN_SEND_SAFETY_FACTOR = BigInt(process.env.CHAIN_SEND_SAFETY_FACTOR);
 
 //Authorizations

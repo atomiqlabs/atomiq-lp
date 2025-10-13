@@ -2,7 +2,7 @@ import {getEnabledPlugins} from "../plugins";
 import {
     AUTHORIZATION_TIMEOUT,
     BITCOIN_BLOCKTIME, CHAIN_SEND_SAFETY_FACTOR,
-    GRACE_PERIOD, REFUND_AUTHORIZATION_TIMEOUT,
+    GRACE_PERIOD, LN_SAFETY_FACTOR_OVERRIDE_PPM, REFUND_AUTHORIZATION_TIMEOUT,
     SAFETY_FACTOR
 } from "../constants/Constants";
 import {IntermediaryConfig} from "../IntermediaryConfig";
@@ -314,6 +314,8 @@ export class IntermediaryRunner extends EventEmitter {
 
                     allowShortExpiry: IntermediaryConfig.LN.ALLOW_LN_SHORT_EXPIRY,
                     allowProbeFailedSwaps: IntermediaryConfig.LN.ALLOW_NON_PROBABLE_SWAPS,
+
+                    lnSendBitcoinBlockTimeSafetyFactorPPM: LN_SAFETY_FACTOR_OVERRIDE_PPM
                 }
             );
             removeAllowedAssets(tobtcln, IntermediaryConfig.LN.EXCLUDE_ASSETS);
