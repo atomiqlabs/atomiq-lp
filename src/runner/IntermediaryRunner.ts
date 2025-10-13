@@ -322,7 +322,7 @@ export class IntermediaryRunner extends EventEmitter {
 
                     allowShortExpiry: IntermediaryConfig.LN.ALLOW_LN_SHORT_EXPIRY,
                     allowProbeFailedSwaps: IntermediaryConfig.LN.ALLOW_NON_PROBABLE_SWAPS,
-                    maxInflightSwaps: IntermediaryConfig.LN.MAX_INFLIGHT_SWAPS
+                    maxInflightSwaps: IntermediaryConfig.LN.MAX_INFLIGHT_SWAPS,
 
                     lnSendBitcoinBlockTimeSafetyFactorPPM: LN_SAFETY_FACTOR_OVERRIDE_PPM
                 }
