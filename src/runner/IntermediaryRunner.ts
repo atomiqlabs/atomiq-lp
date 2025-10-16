@@ -486,7 +486,7 @@ export class IntermediaryRunner extends EventEmitter {
             }, restServer);
         }
 
-        server.setTimeout(IntermediaryConfig.REST.CONNECTION_TIMEOUT_MS ?? 15 * 1000);
+        server.setTimeout(IntermediaryConfig.REST.CONNECTION_TIMEOUT_MS ?? 2 * 60 * 1000);
 
         await new Promise<void>((resolve, reject) => {
             server.on("error", e => reject(e));
