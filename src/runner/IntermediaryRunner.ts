@@ -447,7 +447,9 @@ export class IntermediaryRunner extends EventEmitter {
         restServer.use(createBodySizeLimiter(8*1024));
         restServer.use(createHttpRateLimiter(IntermediaryConfig.REST.REQUEST_LIMIT?.LIMIT, IntermediaryConfig.REST.REQUEST_LIMIT?.WINDOW_MS));
         restServer.use(createConnectionRateLimiter(IntermediaryConfig.REST.CONNECTION_LIMIT));
-        restServer.use(cors());
+        restServer.use(cors({
+            maxAge: 24*60*60*1000
+        }));
 
         for(let swapHandler of this.swapHandlers) {
             swapHandler.startRestServer(restServer);
