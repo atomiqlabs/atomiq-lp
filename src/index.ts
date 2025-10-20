@@ -50,9 +50,9 @@ async function main() {
         }
     } = {};
     const coinMap: {
-        [pair: string]: {
-            [chain: string]: {
-                address: string,
+        [chainId: string]: {
+            [address: string]: {
+                pair: string,
                 decimals: number
             }
         }
@@ -70,22 +70,26 @@ async function main() {
             pricing: string,
             disabled?: boolean
         } = IntermediaryConfig.ASSETS[asset];
-        coinMap[assetData.pricing] = assetData.chains;
 
         if(!assetData.disabled) for(let chain in assetData.chains) {
             if(assetData.chains[chain]==null) {
                 delete assetData.chains[chain];
                 continue;
             }
+            const tokenData = assetData.chains[chain];
+
+            coinMap[chain] ??= {};
+            coinMap[chain][tokenData.address] = {decimals: tokenData.decimals, pair: assetData.pricing};
+
             if(allowedTokens[chain]==null) allowedTokens[chain] = [];
-            allowedTokens[chain].push(assetData.chains[chain].address);
-            if(assetData.chains[chain].securityDepositAllowed) {
+            allowedTokens[chain].push(tokenData.address);
+            if(tokenData.securityDepositAllowed) {
                 if(allowedDepositTokens[chain]==null) allowedDepositTokens[chain] = [];
-                allowedDepositTokens[chain].push(assetData.chains[chain].address);
+                allowedDepositTokens[chain].push(tokenData.address);
             }
-            if(assetData.chains[chain].spvVaultMultiplier!=null) {
+            if(tokenData.spvVaultMultiplier!=null) {
                 if(tokenMultipliers[chain]==null) tokenMultipliers[chain] = {};
-                tokenMultipliers[chain][assetData.chains[chain].address] = assetData.chains[chain].spvVaultMultiplier;
+                tokenMultipliers[chain][tokenData.address] = tokenData.spvVaultMultiplier;
             }
         }
     }
