@@ -8,6 +8,7 @@ import {
     MultichainData, OKXSwapPrice,
 } from "@atomiqlabs/lp-lib";
 import {
+    FeeRateInclusionProbability,
     LNDBitcoinWallet,
     LNDClient,
     LNDLightningWallet,
@@ -21,6 +22,13 @@ import {Command} from "@atomiqlabs/server-base";
 import {BITCOIN_NETWORK} from "./constants/Constants";
 import {BitcoinSpvVaultSigner} from "./bitcoin/BitcoinSpvVaultSigner";
 import {BitcoinNetwork} from "@atomiqlabs/base";
+
+const targetProbabilitiesMap = {
+    "50": FeeRateInclusionProbability.Percent50,
+    "90": FeeRateInclusionProbability.Percent90,
+    "99": FeeRateInclusionProbability.Percent99,
+    "99.9": FeeRateInclusionProbability.Percent99_9,
+}
 
 async function main() {
     const directory = process.env.STORAGE_DIR;
@@ -42,9 +50,9 @@ async function main() {
         }
     } = {};
     const coinMap: {
-        [pair: string]: {
-            [chain: string]: {
-                address: string,
+        [chainId: string]: {
+            [address: string]: {
+                pair: string,
                 decimals: number
             }
         }
@@ -62,22 +70,26 @@ async function main() {
             pricing: string,
             disabled?: boolean
         } = IntermediaryConfig.ASSETS[asset];
-        coinMap[assetData.pricing] = assetData.chains;
 
         if(!assetData.disabled) for(let chain in assetData.chains) {
             if(assetData.chains[chain]==null) {
                 delete assetData.chains[chain];
                 continue;
             }
+            const tokenData = assetData.chains[chain];
+
+            coinMap[chain] ??= {};
+            coinMap[chain][tokenData.address] = {decimals: tokenData.decimals, pair: assetData.pricing};
+
             if(allowedTokens[chain]==null) allowedTokens[chain] = [];
-            allowedTokens[chain].push(assetData.chains[chain].address);
-            if(assetData.chains[chain].securityDepositAllowed) {
+            allowedTokens[chain].push(tokenData.address);
+            if(tokenData.securityDepositAllowed) {
                 if(allowedDepositTokens[chain]==null) allowedDepositTokens[chain] = [];
-                allowedDepositTokens[chain].push(assetData.chains[chain].address);
+                allowedDepositTokens[chain].push(tokenData.address);
             }
-            if(assetData.chains[chain].spvVaultMultiplier!=null) {
+            if(tokenData.spvVaultMultiplier!=null) {
                 if(tokenMultipliers[chain]==null) tokenMultipliers[chain] = {};
-                tokenMultipliers[chain][assetData.chains[chain].address] = assetData.chains[chain].spvVaultMultiplier;
+                tokenMultipliers[chain][tokenData.address] = tokenData.spvVaultMultiplier;
             }
         }
     }
@@ -116,7 +128,8 @@ async function main() {
             IntermediaryConfig.BITCOIND.RPC_USERNAME,
             IntermediaryConfig.BITCOIND.RPC_PASSWORD,
             IntermediaryConfig.BITCOIND?.ADD_NETWORK_FEE,
-            IntermediaryConfig.BITCOIND?.MULTIPLY_NETWORK_FEE
+            IntermediaryConfig.BITCOIND?.MULTIPLY_NETWORK_FEE,
+            IntermediaryConfig.BITCOIND?.FEE_ESTIMATION_PERCENTILE==null ? undefined : targetProbabilitiesMap[IntermediaryConfig.BITCOIND.FEE_ESTIMATION_PERCENTILE]
         );
         lndClient = new LNDClient(IntermediaryConfig.LND);
         const directory = process.env.STORAGE_DIR;
@@ -135,12 +148,15 @@ async function main() {
     }
 
     //Create multichain data object
+    const minChainBalanceReserves: {[chainId: string]: bigint} = {};
     const chains: {[chainId: string]: ChainData & {commands?: Command<any>[]}} = {};
     const registeredChains: {[chainId: string]: ChainInitializer<any, any, any>} = RegisteredChains;
     for(let chainId in registeredChains) {
         if(IntermediaryConfig[chainId]==null) continue;
+        const loadedChain = registeredChains[chainId].loadChain(IntermediaryConfig[chainId], bitcoinRpc, bitcoinNetwork);
+        if(loadedChain.minNativeBalanceReserve!=null) minChainBalanceReserves[chainId] = loadedChain.minNativeBalanceReserve;
         chains[chainId] = {
-            ...registeredChains[chainId].loadChain(IntermediaryConfig[chainId], bitcoinRpc, bitcoinNetwork),
+            ...loadedChain,
             allowedTokens: allowedTokens[chainId] ?? [],
             allowedDepositTokens: allowedDepositTokens[chainId],
             tokenMultipliers: tokenMultipliers[chainId]
@@ -186,7 +202,8 @@ async function main() {
         bitcoinRpc,
         bitcoinWallet,
         lightningWallet,
-        spvVaultSigner
+        spvVaultSigner,
+        minChainBalanceReserves
     );
     for(let chainId in chains) {
         if(chains[chainId].commands!=null) chains[chainId].commands.forEach(cmd => runner.cmdHandler.registerCommand(cmd));
@@ -198,6 +215,7 @@ process.on('unhandledRejection', (reason: string, p: Promise<any>) => {
     console.error('Unhandled Rejection at:', p, 'reason:', reason);
 });
 
+global.atomiqLogLevel = 3;
 main().catch(e => {
     console.error(e);
     process.exit(1);

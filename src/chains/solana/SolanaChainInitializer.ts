@@ -13,7 +13,7 @@ import {
     objectParser,
     percentageToPpmParser,
     stringParser,
-    ConfigParser, enumParser
+    ConfigParser, enumParser, decimalToBigIntParser
 } from "@atomiqlabs/server-base";
 import {StorageManager} from "@atomiqlabs/lp-lib";
 import {getSolanaSigner} from "./signer/AnchorSigner";
@@ -33,6 +33,8 @@ export const publicKeyParser: (optional?: boolean) => ConfigParser<PublicKey> = 
 };
 
 const template = {
+    MIN_NATIVE_RESERVE: decimalToBigIntParser(9, 0, undefined, true),
+
     RPC_URL: stringParser(),
     MAX_FEE_MICRO_LAMPORTS: numberParser(false, 1000),
 
@@ -94,6 +96,7 @@ export const SolanaChainInitializer: ChainInitializer<SolanaChainType, any, type
         const chainEvents = new SolanaChainEvents(directory, AnchorSigner.connection, swapContract);
 
         return {
+            minNativeBalanceReserve: configuration.MIN_NATIVE_RESERVE,
             signer: new SolanaSigner(AnchorSigner.wallet, AnchorSigner.signer),
             swapContract,
             chainEvents,

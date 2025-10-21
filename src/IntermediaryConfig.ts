@@ -37,7 +37,8 @@ const IntermediaryConfigTemplate = {
         RPC_PASSWORD: stringParser(),
         NETWORK: enumParser<"mainnet" | "testnet" | "testnet4" | "regtest">(["mainnet", "testnet", "testnet4", "regtest"]),
         ADD_NETWORK_FEE: numberParser(true, 0, null, true),
-        MULTIPLY_NETWORK_FEE: numberParser(true, 0, null, true)
+        MULTIPLY_NETWORK_FEE: numberParser(true, 0, null, true),
+        FEE_ESTIMATION_PERCENTILE: enumParser(["50", "90", "99", "99.9"], true)
     }),
 
     LND: objectParser({
@@ -64,7 +65,15 @@ const IntermediaryConfigTemplate = {
         ALLOW_LN_SHORT_EXPIRY: booleanParser(),
 
         INVOICE_EXPIRY_SECONDS: numberParser(false, 0, 3600, true),
-        EXCLUDE_ASSETS: arrayParser(stringParser(), true)
+        EXCLUDE_ASSETS: arrayParser(stringParser(), true),
+
+        GAS_MAX: dictionaryParserWithKeys(
+            numberParser(true, 0, undefined, true),
+            allowedChains
+        ),
+
+        MAX_INFLIGHT_SWAPS: numberParser(false, 1, undefined, true),
+        MAX_INFLIGHT_AUTO_SWAPS: numberParser(false, 1, undefined, true)
     }, null, true),
 
     ONCHAIN: objectParser({
@@ -81,7 +90,9 @@ const IntermediaryConfigTemplate = {
 
         NETWORK_FEE_ADD_PERCENTAGE: numberParser(true, 0, null),
 
-        EXCLUDE_ASSETS: arrayParser(stringParser(), true)
+        EXCLUDE_ASSETS: arrayParser(stringParser(), true),
+
+        MAX_INFLIGHT_SWAPS: numberParser(false, 1, undefined, true)
     }, null, true),
 
     ONCHAIN_SPV: objectParser({
@@ -96,7 +107,9 @@ const IntermediaryConfigTemplate = {
             allowedChains
         ),
 
-        EXCLUDE_ASSETS: arrayParser(stringParser(), true)
+        EXCLUDE_ASSETS: arrayParser(stringParser(), true),
+
+        MAX_INFLIGHT_SWAPS: numberParser(false, 1, undefined, true)
     }, null, true),
 
     LN_TRUSTED: objectParser({
@@ -105,7 +118,9 @@ const IntermediaryConfigTemplate = {
         MIN: decimalToBigIntParser(8, 0),
         MAX: decimalToBigIntParser(8, 0),
 
-        INVOICE_EXPIRY_SECONDS: numberParser(false, 0, 3600, true)
+        INVOICE_EXPIRY_SECONDS: numberParser(false, 0, 3600, true),
+
+        MAX_INFLIGHT_SWAPS: numberParser(false, 1, undefined, true)
     }, null, true),
 
     ONCHAIN_TRUSTED: objectParser({
@@ -114,7 +129,9 @@ const IntermediaryConfigTemplate = {
         MIN: decimalToBigIntParser(8, 0),
         MAX: decimalToBigIntParser(8, 0),
 
-        SWAP_EXPIRY_SECONDS: numberParser(false, 0, 72*3600, true)
+        SWAP_EXPIRY_SECONDS: numberParser(false, 0, 72*3600, true),
+
+        MAX_INFLIGHT_SWAPS: numberParser(false, 1, undefined, true)
     }, null, true),
 
     PRICE_SOURCE: enumParser(["binance", "okx"], true),
