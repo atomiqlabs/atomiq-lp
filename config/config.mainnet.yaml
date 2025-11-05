@@ -19,13 +19,28 @@ SOLANA:
 STARKNET:
   MIN_NATIVE_RESERVE: 100
 
-  RPC_URL: "https://starknet-mainnet.public.blastapi.io/rpc/v0_8"
+  RPC_URL: "https://starknet.api.onfinality.io/public/rpc/v0_9"
 
   MAX_L1_FEE_GWEI: 20000000
   MAX_L2_FEE_GWEI: 4000000
   MAX_L1_DATA_FEE_GWEI: 10000000
 
   CHAIN: "MAIN"
+
+  MNEMONIC_FILE: "./wallet.txt"
+  AUTHORIZATION_TIMEOUT: 60
+
+BOTANIX:
+  #If the LP node has below this amount it will stop processing new swaps
+  MIN_NATIVE_RESERVE: 0.0002
+
+  RPC_URL: "wss://rpc.botanixlabs.com/ws"
+  MAX_LOGS_BLOCK_RANGE: 900
+
+  MAX_FEE_GWEI: 2
+  FEE_TIP_GWEI: 0.001
+
+  CHAIN: "MAINNET"
 
   MNEMONIC_FILE: "./wallet.txt"
   AUTHORIZATION_TIMEOUT: 60
@@ -95,6 +110,14 @@ ONCHAIN_SPV:
   MAX_INFLIGHT_SWAPS: 100
 
 ASSETS:
+  BBTC:
+    chains:
+      BOTANIX:
+        address: "0x0000000000000000000000000000000000000000"
+        decimals: 18
+        securityDepositAllowed: true
+        spvVaultMultiplier: 1000000000
+    pricing: "$fixed-100000000"
   WBTC:
     chains:
       SOLANA:
@@ -103,7 +126,7 @@ ASSETS:
       STARKNET:
         address: "0x03fe2b97c1fd336e750087d68b9b867997fd64a2661ff3ca5a7c771641e8e7ac"
         decimals: 8
-    pricing: "WBTCBTC"
+    pricing: "$fixed-100000000"
   USDC:
     chains:
       SOLANA:

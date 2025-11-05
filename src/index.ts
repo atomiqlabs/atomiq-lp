@@ -183,6 +183,7 @@ async function main() {
             const chainData = chains[chainId];
             if(chainData==null) {
                 console.error("Unknown chain identifier ("+chainId+") while checking tokens, known chains: "+Object.keys(chains).join());
+                delete assetData.chains[chainId];
                 continue;
             }
             try {
@@ -192,6 +193,7 @@ async function main() {
                 throw new Error("Invalid token address specified for token: "+asset+" chain: "+chainId);
             }
         }
+        if(Object.keys(assetData.chains).length===0) delete IntermediaryConfig.ASSETS[asset];
     }
 
     const runner = new IntermediaryRunnerWrapper(
