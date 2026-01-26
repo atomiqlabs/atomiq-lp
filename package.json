@@ -44,7 +44,7 @@
     "express": "4.21.1",
     "http2-express-bridge": "1.0.7",
     "public-ip": "6.0.2",
-    "starknet": "^8.5.5",
+    "starknet": "^9.2.1",
     "ws": "^8.18.3",
     "yaml": "2.4.1"
   },
