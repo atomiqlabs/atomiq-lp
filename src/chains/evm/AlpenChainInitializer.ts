@@ -27,7 +27,7 @@ const template = {
 
     MAX_FEE_GWEI: numberParser(true, 0),
     FEE_TIP_GWEI: numberParser(true, 0, undefined, true),
-    CHAIN: enumParser(["MAINNET", "TESTNET"]),
+    CHAIN: enumParser(["MAINNET", "TESTNET", "TESTNET4"]),
 
     MNEMONIC_FILE: stringParser(null, null, true),
     PRIVKEY: stringParser(66, 66, true),
