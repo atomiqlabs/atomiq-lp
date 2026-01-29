@@ -64,7 +64,7 @@ export const StarknetChainInitializer: ChainInitializer<StarknetChainType, any, 
             l1DataGasCost: BigInt(configuration.MAX_L1_DATA_FEE_GWEI)*1000000000n,
         });
 
-        const chainInterface = new StarknetChainInterface(chainId, provider, wsChannel, undefined, starknetFees);
+        const chainInterface = new StarknetChainInterface(chainId, provider, wsChannel, starknetFees);
 
         const btcRelay = new StarknetBtcRelay(
             chainInterface, bitcoinRpc, bitcoinNetwork, configuration.CONTRACTS?.BTC_RELAY
