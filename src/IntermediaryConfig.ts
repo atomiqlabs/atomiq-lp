@@ -144,7 +144,8 @@ const IntermediaryConfigTemplate = {
                     address: stringParser(),
                     decimals: numberParser(false, 0),
                     securityDepositAllowed: booleanParser(true),
-                    spvVaultMultiplier: bigIntParser(1n, undefined, true)
+                    spvVaultMultiplier: bigIntParser(1n, undefined, true),
+                    disabled: booleanParser(true)
                 }, null, true),
                 allowedChains
             ),

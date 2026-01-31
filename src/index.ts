@@ -64,14 +64,15 @@ async function main() {
                     address: string,
                     decimals: number,
                     securityDepositAllowed?: boolean,
-                    spvVaultMultiplier?: bigint
+                    spvVaultMultiplier?: bigint,
+                    disabled?: boolean
                 }
             },
             pricing: string,
             disabled?: boolean
         } = IntermediaryConfig.ASSETS[asset];
 
-        if(!assetData.disabled) for(let chain in assetData.chains) {
+        for(let chain in assetData.chains) {
             if(assetData.chains[chain]==null) {
                 delete assetData.chains[chain];
                 continue;
@@ -81,6 +82,7 @@ async function main() {
             coinMap[chain] ??= {};
             coinMap[chain][tokenData.address] = {decimals: tokenData.decimals, pair: assetData.pricing};
 
+            if(assetData.disabled || tokenData.disabled) continue;
             if(allowedTokens[chain]==null) allowedTokens[chain] = [];
             allowedTokens[chain].push(tokenData.address);
             if(tokenData.securityDepositAllowed) {
