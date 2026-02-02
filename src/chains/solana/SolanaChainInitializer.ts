@@ -3,8 +3,7 @@ import {
     SolanaBtcRelay, SolanaChainInterface, SolanaChainType,
     SolanaFees,
     SolanaSigner,
-    SolanaSwapProgram,
-    StoredDataAccount
+    SolanaSwapProgram
 } from "@atomiqlabs/chain-solana";
 import {
     bigIntParser,
@@ -89,7 +88,7 @@ export const SolanaChainInitializer: ChainInitializer<SolanaChainType, any, type
         const swapContract = new SolanaSwapProgram(
             chainInterface,
             btcRelay,
-            new StorageManager<StoredDataAccount>(directory+"/solaccounts"),
+            new StorageManager<any>(directory+"/solaccounts"),
             configuration.CONTRACTS?.ESCROW?.toString()
         );
 
