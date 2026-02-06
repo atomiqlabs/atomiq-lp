@@ -18,14 +18,14 @@ export function createConnectionRateLimiter(maxConnections?: number): (req: Requ
         }
 
         ipStore.set(ip,  connectionCount+1);
-        logger.debug("OPEN "+ip+" -> "+req.path+", concurrent connections: "+(connectionCount+1));
+        if(req.path!=="/") logger.debug("OPEN "+ip+" -> "+req.path+", concurrent connections: "+(connectionCount+1));
 
         let cleanedUp = false;
         const cleanup = () => {
             if(cleanedUp) return;
             cleanedUp = true;
             let connectionCount = (ipStore.get(ip) ?? 1) - 1;
-            logger.debug("CLOSE "+ip+" -> "+req.path+", concurrent connections: "+connectionCount);
+            if(req.path!=="/") logger.debug("CLOSE "+ip+" -> "+req.path+", concurrent connections: "+connectionCount);
             if(connectionCount===0) {
                 ipStore.delete(ip);
             } else {
