@@ -594,6 +594,7 @@ export class IntermediaryRunner extends EventEmitter {
 
     async tryRecoverSpvVaults() {
         if(this.spvSwapHandler==null) return;
+        if(this.spvSwapHandler.Vaults.recoverVaults==null) return;
 
         for(let chainId in this.multichainData.chains) {
             try {
