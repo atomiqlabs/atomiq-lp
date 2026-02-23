@@ -1024,30 +1024,32 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                 )
             );
 
-            if(this.spvSwapHandler.Vaults.recoverVaults!=null) {
-                commands.push(
-                    createCommand(
-                        "recovervaults",
-                        "Recovers spv vault from on-chain data (might take a while)",
-                        {
-                            args: {
-                                chainId: {
-                                    base: true,
-                                    description: "Chain ID to recover the spv vaults for",
-                                    parser: cmdEnumParser<string>(allowedChains, false)
-                                }
-                            },
-                            parser: async (args, sendLine) => {
-                                const vaults = await this.spvSwapHandler.Vaults.recoverVaults(args.chainId);
-                                return {
-                                    success: true,
-                                    recoveredVaults: vaults.length
-                                };
+            commands.push(
+                createCommand(
+                    "recovervaults",
+                    "Recovers spv vault from on-chain data (might take a while)",
+                    {
+                        args: {
+                            chainId: {
+                                base: true,
+                                description: "Chain ID to recover the spv vaults for",
+                                parser: cmdEnumParser<string>(allowedChains, false)
                             }
+                        },
+                        parser: async (args, sendLine) => {
+                            if(this.spvSwapHandler.Vaults.recoverVaults==null) return {
+                                success: false,
+                                msg: "Vault recovery not supported!"
+                            };
+                            const vaults = await this.spvSwapHandler.Vaults.recoverVaults(args.chainId);
+                            return {
+                                success: true,
+                                recoveredVaults: vaults.length
+                            };
                         }
-                    )
-                );
-            }
+                    }
+                )
+            );
 
         }
 
