@@ -43,6 +43,7 @@ const IntermediaryConfigTemplate = {
 
     LND: objectParser({
         MNEMONIC_FILE: stringParser(null, null, true),
+        MNEMONIC_BIRTHDAY_FILE: stringParser(null, null, true),
         WALLET_PASSWORD_FILE: stringParser(null, null, true),
         CERT: stringParser(null, null, true),
         MACAROON: stringParser(null, null, true),

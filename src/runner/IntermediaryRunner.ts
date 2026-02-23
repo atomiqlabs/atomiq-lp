@@ -34,6 +34,7 @@ import {createHttpRateLimiter} from "../http/HttpRateLimiter";
 import {createConnectionRateLimiter} from "../http/ConnectionRateLimiter";
 import {createBodySizeLimiter} from "../http/BodySizeLimiter";
 import {SecureContext} from "node:tls";
+import {logger} from "starknet";
 
 export enum IntermediaryInitState {
     STARTING="starting",
@@ -47,6 +48,7 @@ export enum IntermediaryInitState {
     INIT_EVENTS="init_events",
     INIT_WATCHDOGS="init_watchdogs",
     START_REST="start_rest",
+    RECOVER_SPV_VAULTS="recover_spv_vaults",
     READY="ready"
 }
 
@@ -590,6 +592,30 @@ export class IntermediaryRunner extends EventEmitter {
         }
     }
 
+    async tryRecoverSpvVaults() {
+        if(this.spvSwapHandler==null) return;
+
+        for(let chainId in this.multichainData.chains) {
+            try {
+                await fs.readFile(this.directory+"/"+chainId+"-vaults-recovered-at.txt");
+            } catch (e) {
+                const knownVaults = await this.spvSwapHandler.Vaults.listVaults(chainId);
+                if(knownVaults.length!==0) continue;
+
+                logger.info(`init(): Recovering SPV vaults for ${chainId}...`);
+                this.setState(IntermediaryInitState.RECOVER_SPV_VAULTS);
+                try {
+                    const timeOfRecovery = Date.now();
+                    const vaults = await this.spvSwapHandler.Vaults.recoverVaults(chainId);
+                    logger.info(`init(): Successfully recovered ${vaults.length} SPV vaults on ${chainId}!`);
+                    await fs.writeFile(this.directory+"/"+chainId+"-vaults-recovered-at.txt", timeOfRecovery.toString(10));
+                } catch (e) {
+                    logger.error(`init(): Failed to recover SPV vault for ${chainId} (will be automatically retried on next startup): `, e);
+                }
+            }
+        }
+    }
+
     async init() {
         if(this.bitcoinRpc!=null) {
             this.setState(IntermediaryInitState.WAIT_BTC_RPC);
@@ -651,6 +677,8 @@ export class IntermediaryRunner extends EventEmitter {
 
         this.setState(IntermediaryInitState.START_REST);
         await this.startRestServer();
+
+        await this.tryRecoverSpvVaults();
 
         this.setState(IntermediaryInitState.READY);
     }
