@@ -11,6 +11,7 @@ import {
 import * as fs from "fs";
 import {parse} from "yaml";
 import {RegisteredChains} from "./chains/ChainInitializer";
+import {validateRateLimitWhitelist} from "./http/RateLimitWhitelist";
 
 function getAllowedChains<T>(obj: T): (keyof T)[] {
     return Object.keys(obj) as (keyof T)[];
@@ -170,7 +171,23 @@ const IntermediaryConfigTemplate = {
         }, undefined, true),
 
         CONNECTION_LIMIT: numberParser(false, 0, undefined, true),
-        CONNECTION_TIMEOUT_MS: numberParser(false, 0, undefined, true)
+        CONNECTION_TIMEOUT_MS: numberParser(false, 0, undefined, true),
+
+        WHITELIST: dictionaryParser(
+            objectParser({
+                REQUEST_LIMIT: objectParser({
+                    LIMIT: numberParser(false, 0),
+                    WINDOW_MS: numberParser(false, 0, undefined, true)
+                }, undefined, true),
+                CONNECTION_LIMIT: numberParser(false, 0, undefined, true)
+            }, (obj) => {
+                if(obj.REQUEST_LIMIT==null && obj.CONNECTION_LIMIT==null) {
+                    throw new Error("At least REQUEST_LIMIT or CONNECTION_LIMIT needs to be configured!");
+                }
+            }),
+            validateRateLimitWhitelist,
+            true
+        )
     }),
 
     RPC: objectParser({

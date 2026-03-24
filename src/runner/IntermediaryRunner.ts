@@ -33,6 +33,7 @@ import {fromDecimal} from "@atomiqlabs/server-base";
 import {createHttpRateLimiter} from "../http/HttpRateLimiter";
 import {createConnectionRateLimiter} from "../http/ConnectionRateLimiter";
 import {createBodySizeLimiter} from "../http/BodySizeLimiter";
+import {compileRateLimitWhitelist} from "../http/RateLimitWhitelist";
 import {SecureContext} from "node:tls";
 import {logger} from "starknet";
 
@@ -444,11 +445,19 @@ export class IntermediaryRunner extends EventEmitter {
         const useSsl = IntermediaryConfig.SSL!=null || IntermediaryConfig.SSL_AUTO!=null;
 
         const listenPort = IntermediaryConfig.REST.PORT;
+        const rateLimitWhitelist = compileRateLimitWhitelist(IntermediaryConfig.REST.WHITELIST);
 
         const restServer = http2Express(express) as express.Express;
         restServer.use(createBodySizeLimiter(8*1024));
-        restServer.use(createHttpRateLimiter(IntermediaryConfig.REST.REQUEST_LIMIT?.LIMIT, IntermediaryConfig.REST.REQUEST_LIMIT?.WINDOW_MS));
-        restServer.use(createConnectionRateLimiter(IntermediaryConfig.REST.CONNECTION_LIMIT));
+        restServer.use(createHttpRateLimiter(
+            IntermediaryConfig.REST.REQUEST_LIMIT?.LIMIT,
+            IntermediaryConfig.REST.REQUEST_LIMIT?.WINDOW_MS,
+            rateLimitWhitelist
+        ));
+        restServer.use(createConnectionRateLimiter(
+            IntermediaryConfig.REST.CONNECTION_LIMIT,
+            rateLimitWhitelist
+        ));
         restServer.use(cors({
             maxAge: 24*60*60*1000
         }));
