@@ -22,7 +22,7 @@
   "license": "ISC",
   "dependencies": {
     "@atomiqlabs/base": "^13.2.0",
-    "@atomiqlabs/btc-bitcoind": "^11.0.1",
+    "@atomiqlabs/btc-bitcoind": "^11.1.0",
     "@atomiqlabs/chain-evm": "^2.2.1",
     "@atomiqlabs/chain-solana": "^13.2.4",
     "@atomiqlabs/chain-starknet": "^8.2.2",

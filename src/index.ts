@@ -24,6 +24,13 @@ import {BitcoinSpvVaultSigner} from "./bitcoin/BitcoinSpvVaultSigner";
 import {BitcoinNetwork} from "@atomiqlabs/base";
 import {KeyBasedWhitelist} from "./http/KeyBasedWhitelist";
 
+const networksMap = {
+    "mainnet": BitcoinNetwork.MAINNET,
+    "testnet": BitcoinNetwork.TESTNET,
+    "testnet4": BitcoinNetwork.TESTNET4,
+    "regtest": BitcoinNetwork.REGTEST
+}
+
 const targetProbabilitiesMap = {
     "50": FeeRateInclusionProbability.Percent50,
     "90": FeeRateInclusionProbability.Percent90,
@@ -120,7 +127,9 @@ async function main() {
             IntermediaryConfig.BITCOIND.RPC_USERNAME,
             IntermediaryConfig.BITCOIND.RPC_PASSWORD,
             IntermediaryConfig.BITCOIND.HOST,
-            IntermediaryConfig.BITCOIND.PORT
+            IntermediaryConfig.BITCOIND.PORT,
+            undefined,
+            networksMap[IntermediaryConfig.BITCOIND.NETWORK]
         );
 
         console.log("[Main]: Running in bitcoin "+IntermediaryConfig.BITCOIND.NETWORK+" mode!");
