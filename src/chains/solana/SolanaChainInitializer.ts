@@ -92,7 +92,7 @@ export const SolanaChainInitializer: ChainInitializer<SolanaChainType, any, type
             btcRelay,
             new StorageManager<any>(directory+"/solaccounts"),
             configuration.CONTRACTS?.ESCROW?.toString(),
-            configuration.CONTRACT_VERSION
+            configuration.CONTRACT_VERSION ?? undefined
         );
 
         const chainEvents = new SolanaChainEvents(directory, AnchorSigner.connection, swapContract);
@@ -127,7 +127,7 @@ export const SolanaChainInitializer: ChainInitializer<SolanaChainType, any, type
                     }
                 )
             ],
-            contractVersion: configuration.CONTRACT_VERSION
+            contractVersion: configuration.CONTRACT_VERSION ?? swapContract.version
         };
     },
     configuration: objectParser(template, (data) => {
