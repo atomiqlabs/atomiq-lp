@@ -61,7 +61,7 @@ const template = {
 };
 
 export const SolanaChainInitializer: ChainInitializer<SolanaChainType, any, typeof template> = {
-    loadChain: (configuration, bitcoinRpc) => {
+    loadChain: (configuration, bitcoinRpc, bitcoinNetwork) => {
         const directory = process.env.STORAGE_DIR;
 
         const AnchorSigner = getSolanaSigner(configuration);
@@ -86,12 +86,15 @@ export const SolanaChainInitializer: ChainInitializer<SolanaChainType, any, type
             chainInterface,
             bitcoinRpc,
             configuration.CONTRACTS?.BTC_RELAY?.toString(),
+            bitcoinNetwork,
+            configuration.CONTRACT_VERSION ?? undefined
         );
         const swapContract = new SolanaSwapProgram(
             chainInterface,
             btcRelay,
             new StorageManager<any>(directory+"/solaccounts"),
             configuration.CONTRACTS?.ESCROW?.toString(),
+            bitcoinNetwork,
             configuration.CONTRACT_VERSION ?? undefined
         );
 
