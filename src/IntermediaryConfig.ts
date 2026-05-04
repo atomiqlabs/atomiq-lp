@@ -11,6 +11,7 @@ import {
 import * as fs from "fs";
 import {parse} from "yaml";
 import {RegisteredChains} from "./chains/ChainInitializer";
+import {secp256k1} from "@noble/curves/secp256k1";
 
 function getAllowedChains<T>(obj: T): (keyof T)[] {
     return Object.keys(obj) as (keyof T)[];
@@ -170,7 +171,24 @@ const IntermediaryConfigTemplate = {
         }, undefined, true),
 
         CONNECTION_LIMIT: numberParser(false, 0, undefined, true),
-        CONNECTION_TIMEOUT_MS: numberParser(false, 0, undefined, true)
+        CONNECTION_TIMEOUT_MS: numberParser(false, 0, undefined, true),
+
+        KEY_BASED_WHITELIST: dictionaryParser(objectParser({
+            REQUEST_LIMIT: objectParser({
+                LIMIT: numberParser(false, 0),
+                WINDOW_MS: numberParser(false, 0)
+            }, undefined, true),
+
+            CONNECTION_LIMIT: numberParser(false, 0, undefined, true),
+        }), (dictionary) => {
+            for(let key in dictionary) {
+                try {
+                    if(!secp256k1.utils.isValidPublicKey(Buffer.from(key, "hex"), true)) throw new Error();
+                } catch (e) {
+                    throw new Error(`Incorrectly formatted key in KEY_BASED_WHITELIST found, ${key} is not a valid compressed secp256k1 public key!`);
+                }
+            }
+        }, true)
     }),
 
     RPC: objectParser({

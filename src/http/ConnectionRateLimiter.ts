@@ -9,10 +9,11 @@ export function createConnectionRateLimiter(maxConnections?: number): (req: Requ
     const ipStore: Map<string, number> = new Map();
 
     return (req: Request, res: Response, next: () => void) => {
+        const connectionLimit = req.metadata?.CONNECTION_LIMIT ?? maxConnections;
         const ip = req.ip;
         let connectionCount = ipStore.get(ip) ?? 0;
 
-        if (connectionCount >= maxConnections) {
+        if (connectionCount >= connectionLimit) {
             res.status(503).send('Too many open requests');
             return;
         }

@@ -35,6 +35,7 @@ import {createConnectionRateLimiter} from "../http/ConnectionRateLimiter";
 import {createBodySizeLimiter} from "../http/BodySizeLimiter";
 import {SecureContext} from "node:tls";
 import {logger} from "starknet";
+import {KeyBasedWhitelist} from "../http/KeyBasedWhitelist";
 
 export enum IntermediaryInitState {
     STARTING="starting",
@@ -100,6 +101,8 @@ export class IntermediaryRunner extends EventEmitter {
     initState: IntermediaryInitState = IntermediaryInitState.STARTING;
     sslAutoUrl: string;
 
+    keyBasedWhitelist: KeyBasedWhitelist;
+
     setState(newState: IntermediaryInitState) {
         const oldState = this.initState;
         this.initState = newState;
@@ -126,7 +129,8 @@ export class IntermediaryRunner extends EventEmitter {
         bitcoinWallet: IBitcoinWallet,
         lightningWallet: ILightningWallet,
         spvVaultSigner: ISpvVaultSigner,
-        minChainBalanceReserves: {[chainId: string]: bigint}
+        minChainBalanceReserves: {[chainId: string]: bigint},
+        keyBasedWhitelist: KeyBasedWhitelist
     ) {
         super();
         this.directory = directory;
@@ -138,6 +142,7 @@ export class IntermediaryRunner extends EventEmitter {
         this.lightningWallet = lightningWallet;
         this.spvVaultSigner = spvVaultSigner;
         this.minChainBalanceReserves = minChainBalanceReserves;
+        this.keyBasedWhitelist = keyBasedWhitelist;
     }
 
     /**
@@ -441,11 +446,14 @@ export class IntermediaryRunner extends EventEmitter {
     }
 
     async startRestServer() {
+        if(this.keyBasedWhitelist!=null) this.keyBasedWhitelist.start();
+
         const useSsl = IntermediaryConfig.SSL!=null || IntermediaryConfig.SSL_AUTO!=null;
 
         const listenPort = IntermediaryConfig.REST.PORT;
 
         const restServer = http2Express(express) as express.Express;
+        if(this.keyBasedWhitelist!=null) restServer.use(this.keyBasedWhitelist.getMiddleware());
         restServer.use(createBodySizeLimiter(8*1024));
         restServer.use(createHttpRateLimiter(IntermediaryConfig.REST.REQUEST_LIMIT?.LIMIT, IntermediaryConfig.REST.REQUEST_LIMIT?.WINDOW_MS));
         restServer.use(createConnectionRateLimiter(IntermediaryConfig.REST.CONNECTION_LIMIT));

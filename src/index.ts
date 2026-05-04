@@ -22,6 +22,7 @@ import {Command} from "@atomiqlabs/server-base";
 import {BITCOIN_NETWORK} from "./constants/Constants";
 import {BitcoinSpvVaultSigner} from "./bitcoin/BitcoinSpvVaultSigner";
 import {BitcoinNetwork} from "@atomiqlabs/base";
+import {KeyBasedWhitelist} from "./http/KeyBasedWhitelist";
 
 const targetProbabilitiesMap = {
     "50": FeeRateInclusionProbability.Percent50,
@@ -207,7 +208,8 @@ async function main() {
         bitcoinWallet,
         lightningWallet,
         spvVaultSigner,
-        minChainBalanceReserves
+        minChainBalanceReserves,
+        new KeyBasedWhitelist(IntermediaryConfig.REST.KEY_BASED_WHITELIST)
     );
     for(let chainId in chains) {
         if(chains[chainId].commands!=null) chains[chainId].commands.forEach(cmd => runner.cmdHandler.registerCommand(cmd));

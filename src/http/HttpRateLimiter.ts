@@ -7,10 +7,11 @@ export function createHttpRateLimiter(maxRequests?: number, rateLimitWindow?: nu
     const ipStore: Map<string, {count: number, timestamp: number}> = new Map();
 
     return (req: Request, res: Response, next: () => void) => {
+        const requestLimit = req.metadata?.REQUEST_LIMIT ?? {LIMIT: maxRequests, WINDOW_MS: rateLimitWindow};
         const ip = req.ip;
         let storedState = ipStore.get(ip);
         if(storedState!=null) {
-            if(Date.now() - storedState.timestamp > rateLimitWindow) {
+            if(Date.now() - storedState.timestamp > requestLimit.WINDOW_MS) {
                 storedState.count = 1;
                 storedState.timestamp = Date.now();
             } else {
@@ -24,7 +25,7 @@ export function createHttpRateLimiter(maxRequests?: number, rateLimitWindow?: nu
             ipStore.set(ip, storedState);
         }
 
-        if (storedState.count > maxRequests) {
+        if (storedState.count > requestLimit.LIMIT) {
             return res.status(429).send('Too many requests');
         }
 

@@ -30,6 +30,7 @@
     "@atomiqlabs/server-base": "3.0.0",
     "@atomiqlabs/wallet-lnd": "^7.0.2",
     "@coral-xyz/anchor": "0.29.0",
+    "@noble/curves": "^1.9.7",
     "@peculiar/x509": "^1.14.0",
     "@scure/bip32": "1.6.2",
     "@scure/bip39": "1.5.4",
