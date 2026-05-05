@@ -183,9 +183,10 @@ const IntermediaryConfigTemplate = {
         }), (dictionary) => {
             for(let key in dictionary) {
                 try {
-                    if(!secp256k1.utils.isValidPublicKey(Buffer.from(key, "hex"), true)) throw new Error();
+                    if(!/^[0-9a-fA-F]{64}$/.test(key)) throw new Error();
+                    if(!secp256k1.utils.isValidPublicKey(Buffer.from("02"+key, "hex"), true)) throw new Error();
                 } catch (e) {
-                    throw new Error(`Incorrectly formatted key in KEY_BASED_WHITELIST found, ${key} is not a valid compressed secp256k1 public key!`);
+                    throw new Error(`Incorrectly formatted key in KEY_BASED_WHITELIST found, ${key} is not a valid X-only 32-byte secp256k1 public key!`);
                 }
             }
         }, true)

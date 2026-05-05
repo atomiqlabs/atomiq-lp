@@ -3,10 +3,10 @@
  * - 4 bytes - timestamp (timestamp when the request was sent)
  * - 32 bytes - random bytes (entropy, to be signed)
  *
- * - 33 bytes - key of the signing authority
+ * - 32 bytes - key of the signing authority
  * - 64 bytes - schnorr signature signing the request signing key by the signing authority
  *
- * - 33 bytes - request signing key (signed by the signing authority)
+ * - 32 bytes - request signing key (signed by the signing authority)
  * - 64 bytes - schnorr signature of the timestamp and random bytes
  *
  * Uses secp256k1 curve and schnorr signatures
@@ -64,10 +64,10 @@ export class KeyBasedWhitelist {
     getRateLimitOverride(req: Request): RateLimitOverride | undefined {
         const header = req.header("x-atomiq-auth");
         if(header==null) return undefined;
-        if(header.length!==460 || !/^[0-9a-fA-F]+$/.test(header)) throw new Error("Invalid x-atomiq-auth header format");
+        if(header.length!==456 || !/^[0-9a-fA-F]+$/.test(header)) throw new Error("Invalid x-atomiq-auth header format");
 
         const authorization = Buffer.from(header, "hex");
-        if(authorization.length!==230) throw new Error("Invalid x-atomiq-auth header length");
+        if(authorization.length!==228) throw new Error("Invalid x-atomiq-auth header length");
 
         const timestamp = authorization.readUInt32BE(0) * 1000;
         if(Math.abs(Date.now() - timestamp)>this.requestExpiryTime) throw new Error("Expired x-atomiq-auth header");
@@ -76,17 +76,17 @@ export class KeyBasedWhitelist {
         const randomBytesHex = randomBytes.toString("hex");
         if(this.usedRandomBytes.has(randomBytesHex)) throw new Error("Replayed x-atomiq-auth header");
 
-        const signingAuthorityKey = authorization.subarray(36, 69);
+        const signingAuthorityKey = authorization.subarray(36, 68);
         const signingAuthorityKeyHex = signingAuthorityKey.toString("hex");
         const rateLimitOverride = this.rateLimitOverrides[signingAuthorityKeyHex];
         if(rateLimitOverride==null) throw new Error("Unknown x-atomiq-auth signing authority");
 
-        const authoritySignature = authorization.subarray(69, 133);
-        const requestSigningKey = authorization.subarray(133, 166);
-        const requestSignature = authorization.subarray(166, 230);
+        const authoritySignature = authorization.subarray(68, 132);
+        const requestSigningKey = authorization.subarray(132, 164);
+        const requestSignature = authorization.subarray(164, 228);
 
-        if(!schnorr.verify(authoritySignature, requestSigningKey, signingAuthorityKey.subarray(1))) throw new Error("Invalid x-atomiq-auth authority signature");
-        if(!schnorr.verify(requestSignature, authorization.subarray(0, 36), requestSigningKey.subarray(1))) throw new Error("Invalid x-atomiq-auth request signature");
+        if(!schnorr.verify(authoritySignature, requestSigningKey, signingAuthorityKey)) throw new Error("Invalid x-atomiq-auth authority signature");
+        if(!schnorr.verify(requestSignature, authorization.subarray(0, 36), requestSigningKey)) throw new Error("Invalid x-atomiq-auth request signature");
 
         this.usedRandomBytes.set(randomBytesHex, timestamp);
         return rateLimitOverride;
