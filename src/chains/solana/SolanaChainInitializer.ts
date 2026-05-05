@@ -60,7 +60,7 @@ const template = {
     CONTRACT_VERSION: enumParser(["v1", "v2"], true)
 };
 
-export const SolanaChainInitializer: ChainInitializer<SolanaChainType, any, typeof template> = {
+export const SolanaChainInitializer: ChainInitializer<SolanaChainType<"v1" | "v2">, any, typeof template> = {
     loadChain: (configuration, bitcoinRpc, bitcoinNetwork) => {
         const directory = process.env.STORAGE_DIR;
 
