@@ -24,7 +24,7 @@
     "@atomiqlabs/base": "^13.5.0",
     "@atomiqlabs/btc-bitcoind": "^11.1.0",
     "@atomiqlabs/chain-evm": "^2.4.1",
-    "@atomiqlabs/chain-solana": "^13.4.1",
+    "@atomiqlabs/chain-solana": "^13.4.2",
     "@atomiqlabs/chain-starknet": "^8.4.1",
     "@atomiqlabs/lp-lib": "^17.3.0",
     "@atomiqlabs/server-base": "3.0.2",

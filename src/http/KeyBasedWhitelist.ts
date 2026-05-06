@@ -30,7 +30,11 @@ type RateLimitOverrides = {
 declare global {
     namespace Express {
         interface Request {
-            metadata?: RateLimitOverride;
+            rateLimitOverride?: {
+                identifier: string,
+                limits: RateLimitOverride,
+                verify: () => void
+            };
         }
     }
 }
@@ -61,50 +65,49 @@ export class KeyBasedWhitelist {
 
     // Returns the adjusted limits for a valid authorization, or undefined when no header is present.
     // Valid authorizations are added to usedRandomBytes so they cannot be replayed.
-    getRateLimitOverride(req: Request): RateLimitOverride | undefined {
-        const header = req.header("x-atomiq-auth");
-        if(header==null) return undefined;
-        if(header.length!==456 || !/^[0-9a-fA-F]+$/.test(header)) throw new Error("Invalid x-atomiq-auth header format");
-
-        const authorization = Buffer.from(header, "hex");
-        if(authorization.length!==228) throw new Error("Invalid x-atomiq-auth header length");
-
-        const timestamp = authorization.readUInt32BE(0) * 1000;
-        if(Math.abs(Date.now() - timestamp)>this.requestExpiryTime) throw new Error("Expired x-atomiq-auth header");
-
-        const randomBytes = authorization.subarray(4, 36);
-        const randomBytesHex = randomBytes.toString("hex");
-        if(this.usedRandomBytes.has(randomBytesHex)) throw new Error("Replayed x-atomiq-auth header");
-
-        const signingAuthorityKey = authorization.subarray(36, 68);
-        const signingAuthorityKeyHex = signingAuthorityKey.toString("hex");
-        const rateLimitOverride = this.rateLimitOverrides[signingAuthorityKeyHex];
-        if(rateLimitOverride==null) throw new Error("Unknown x-atomiq-auth signing authority");
-
-        const authoritySignature = authorization.subarray(68, 132);
-        const requestSigningKey = authorization.subarray(132, 164);
-        const requestSignature = authorization.subarray(164, 228);
-
-        if(!schnorr.verify(authoritySignature, requestSigningKey, signingAuthorityKey)) throw new Error("Invalid x-atomiq-auth authority signature");
-        if(!schnorr.verify(requestSignature, authorization.subarray(0, 36), requestSigningKey)) throw new Error("Invalid x-atomiq-auth request signature");
-
-        this.usedRandomBytes.set(randomBytesHex, timestamp);
-        return rateLimitOverride;
-    }
-
     getMiddleware(): RequestHandler {
         return (req, res, next) => {
-            try {
-                const rateLimitOverride = this.getRateLimitOverride(req);
-                if(rateLimitOverride!=null) {
-                    req.metadata ??= {};
-                    req.metadata.REQUEST_LIMIT = rateLimitOverride.REQUEST_LIMIT;
-                    req.metadata.CONNECTION_LIMIT = rateLimitOverride.CONNECTION_LIMIT;
+            const header = req.header("x-atomiq-auth");
+            if(header==null) return next();
+
+            if(header.length!==456 || !/^[0-9a-fA-F]+$/.test(header)) return res.status(400).send("Invalid x-atomiq-auth header format");
+
+            const signingAuthorityKeyHex = header.substring(72, 136).toLowerCase();
+            const rateLimitOverride = this.rateLimitOverrides[signingAuthorityKeyHex];
+            if(rateLimitOverride==null) return res.status(400).send("Unknown x-atomiq-auth signing authority");
+
+            const requestSigningKeyHex = header.substring(264, 328).toLowerCase();
+
+            let verified: boolean = false;
+            req.rateLimitOverride = {
+                identifier: requestSigningKeyHex,
+                limits: rateLimitOverride,
+                verify: () => {
+                    if(verified) return;
+
+                    const authorization = Buffer.from(header, "hex");
+                    if(authorization.length!==228) throw new Error("Invalid x-atomiq-auth header length");
+
+                    const timestamp = authorization.readUInt32BE(0) * 1000;
+                    if(Math.abs(Date.now() - timestamp)>this.requestExpiryTime) throw new Error("Expired x-atomiq-auth header");
+
+                    const randomBytes = authorization.subarray(4, 36);
+                    const randomBytesHex = randomBytes.toString("hex");
+                    if(this.usedRandomBytes.has(randomBytesHex)) throw new Error("Replayed x-atomiq-auth header");
+
+                    const signingAuthorityKey = authorization.subarray(36, 68);
+                    const authoritySignature = authorization.subarray(68, 132);
+                    const requestSigningKey = authorization.subarray(132, 164);
+                    const requestSignature = authorization.subarray(164, 228);
+
+                    if(!schnorr.verify(authoritySignature, requestSigningKey, signingAuthorityKey)) throw new Error("Invalid x-atomiq-auth authority signature");
+                    if(!schnorr.verify(requestSignature, authorization.subarray(0, 36), requestSigningKey)) throw new Error("Invalid x-atomiq-auth request signature");
+
+                    this.usedRandomBytes.set(randomBytesHex, timestamp);
+                    verified = true;
                 }
-                next();
-            } catch (e) {
-                res.status(400).send(e instanceof Error ? e.message : "Invalid x-atomiq-auth header");
-            }
+            };
+            next();
         };
     }
 
