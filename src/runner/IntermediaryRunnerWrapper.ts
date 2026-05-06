@@ -36,6 +36,7 @@ import {fromDecimal, toDecimal} from "../Utils";
 import {allowedChains, IntermediaryConfig} from "../IntermediaryConfig";
 import {Registry} from "../Registry";
 import {bigIntSorter} from "@atomiqlabs/lp-lib/dist/utils/Utils";
+import {KeyBasedWhitelist} from "../http/KeyBasedWhitelist";
 
 function sortVaults(vaults: SpvVault[]) {
     vaults.sort(
@@ -86,9 +87,10 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
         bitcoinWallet: IBitcoinWallet,
         lightningWallet: ILightningWallet,
         spvVaultSigner: ISpvVaultSigner,
-        minChainBalanceReserves: {[chainId: string]: bigint}
+        minChainBalanceReserves: {[chainId: string]: bigint},
+        keyBasedWhitelist: KeyBasedWhitelist
     ) {
-        super(directory, multichainData, tokens, prices, bitcoinRpc, bitcoinWallet, lightningWallet, spvVaultSigner, minChainBalanceReserves);
+        super(directory, multichainData, tokens, prices, bitcoinRpc, bitcoinWallet, lightningWallet, spvVaultSigner, minChainBalanceReserves, keyBasedWhitelist);
         this.lpRegistry = new Registry(directory+"/lpRegistration.txt");
         this.addressesToTokens = {};
         const tokenTickers = [];

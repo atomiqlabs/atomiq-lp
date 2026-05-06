@@ -22,6 +22,14 @@ import {Command} from "@atomiqlabs/server-base";
 import {BITCOIN_NETWORK} from "./constants/Constants";
 import {BitcoinSpvVaultSigner} from "./bitcoin/BitcoinSpvVaultSigner";
 import {BitcoinNetwork} from "@atomiqlabs/base";
+import {KeyBasedWhitelist} from "./http/KeyBasedWhitelist";
+
+const networksMap = {
+    "mainnet": BitcoinNetwork.MAINNET,
+    "testnet": BitcoinNetwork.TESTNET,
+    "testnet4": BitcoinNetwork.TESTNET4,
+    "regtest": BitcoinNetwork.REGTEST
+}
 
 const targetProbabilitiesMap = {
     "50": FeeRateInclusionProbability.Percent50,
@@ -119,7 +127,9 @@ async function main() {
             IntermediaryConfig.BITCOIND.RPC_USERNAME,
             IntermediaryConfig.BITCOIND.RPC_PASSWORD,
             IntermediaryConfig.BITCOIND.HOST,
-            IntermediaryConfig.BITCOIND.PORT
+            IntermediaryConfig.BITCOIND.PORT,
+            undefined,
+            networksMap[IntermediaryConfig.BITCOIND.NETWORK]
         );
 
         console.log("[Main]: Running in bitcoin "+IntermediaryConfig.BITCOIND.NETWORK+" mode!");
@@ -207,7 +217,8 @@ async function main() {
         bitcoinWallet,
         lightningWallet,
         spvVaultSigner,
-        minChainBalanceReserves
+        minChainBalanceReserves,
+        new KeyBasedWhitelist(IntermediaryConfig.REST.KEY_BASED_WHITELIST)
     );
     for(let chainId in chains) {
         if(chains[chainId].commands!=null) chains[chainId].commands.forEach(cmd => runner.cmdHandler.registerCommand(cmd));

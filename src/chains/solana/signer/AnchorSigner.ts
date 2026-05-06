@@ -3,6 +3,7 @@ import {Connection, Keypair} from "@solana/web3.js";
 import {mnemonicToSeedSync} from "@scure/bip39";
 import { derivePath } from 'ed25519-hd-key';
 import * as fs from "fs";
+import {ConnectionWithRetries} from "@atomiqlabs/chain-solana";
 
 export function getSolanaSigner(configuration: {RPC_URL: string, MNEMONIC_FILE?: string, PRIVKEY?: string}): (AnchorProvider & {signer: Keypair}) {
     const mnemonicFile = configuration.MNEMONIC_FILE;
@@ -31,7 +32,7 @@ export function getSolanaSigner(configuration: {RPC_URL: string, MNEMONIC_FILE?:
         _signer = Keypair.fromSeed(derivedPath.key);
     }
 
-    const connection = new Connection(configuration.RPC_URL, "processed");
+    const connection = new ConnectionWithRetries(configuration.RPC_URL, "processed");
     const AnchorSigner: (AnchorProvider & {signer: Keypair}) = new AnchorProvider(connection, new Wallet(_signer), {
         preflightCommitment: "processed"
     }) as any;

@@ -30,11 +30,12 @@ import {generateAlpnChallengeCert, LetsEncryptACME} from "../LetsEncryptACME";
 import * as tls from "node:tls";
 import {EventEmitter} from "node:events";
 import {fromDecimal} from "@atomiqlabs/server-base";
-import {createHttpRateLimiter} from "../http/HttpRateLimiter";
-import {createConnectionRateLimiter} from "../http/ConnectionRateLimiter";
+import {HttpRateLimiter} from "../http/HttpRateLimiter";
+import {ConnectionRateLimiter} from "../http/ConnectionRateLimiter";
 import {createBodySizeLimiter} from "../http/BodySizeLimiter";
 import {SecureContext} from "node:tls";
 import {logger} from "starknet";
+import {KeyBasedWhitelist} from "../http/KeyBasedWhitelist";
 
 export enum IntermediaryInitState {
     STARTING="starting",
@@ -100,6 +101,8 @@ export class IntermediaryRunner extends EventEmitter {
     initState: IntermediaryInitState = IntermediaryInitState.STARTING;
     sslAutoUrl: string;
 
+    keyBasedWhitelist: KeyBasedWhitelist;
+
     setState(newState: IntermediaryInitState) {
         const oldState = this.initState;
         this.initState = newState;
@@ -126,7 +129,8 @@ export class IntermediaryRunner extends EventEmitter {
         bitcoinWallet: IBitcoinWallet,
         lightningWallet: ILightningWallet,
         spvVaultSigner: ISpvVaultSigner,
-        minChainBalanceReserves: {[chainId: string]: bigint}
+        minChainBalanceReserves: {[chainId: string]: bigint},
+        keyBasedWhitelist: KeyBasedWhitelist
     ) {
         super();
         this.directory = directory;
@@ -138,6 +142,7 @@ export class IntermediaryRunner extends EventEmitter {
         this.lightningWallet = lightningWallet;
         this.spvVaultSigner = spvVaultSigner;
         this.minChainBalanceReserves = minChainBalanceReserves;
+        this.keyBasedWhitelist = keyBasedWhitelist;
     }
 
     /**
@@ -441,14 +446,23 @@ export class IntermediaryRunner extends EventEmitter {
     }
 
     async startRestServer() {
+        if(this.keyBasedWhitelist!=null) this.keyBasedWhitelist.start();
+
         const useSsl = IntermediaryConfig.SSL!=null || IntermediaryConfig.SSL_AUTO!=null;
 
         const listenPort = IntermediaryConfig.REST.PORT;
 
+        const httpRateLimiter = new HttpRateLimiter(IntermediaryConfig.REST.REQUEST_LIMIT?.LIMIT, IntermediaryConfig.REST.REQUEST_LIMIT?.WINDOW_MS);
+        httpRateLimiter.start();
+        const concurrentRequestLimiter = new ConnectionRateLimiter(IntermediaryConfig.REST.CONNECTION_LIMIT);
+
         const restServer = http2Express(express) as express.Express;
         restServer.use(createBodySizeLimiter(8*1024));
-        restServer.use(createHttpRateLimiter(IntermediaryConfig.REST.REQUEST_LIMIT?.LIMIT, IntermediaryConfig.REST.REQUEST_LIMIT?.WINDOW_MS));
-        restServer.use(createConnectionRateLimiter(IntermediaryConfig.REST.CONNECTION_LIMIT));
+        if(this.keyBasedWhitelist!=null) restServer.use(this.keyBasedWhitelist.getMiddleware());
+        restServer.use(httpRateLimiter.getPreMiddleware());
+        restServer.use(concurrentRequestLimiter.getPreMiddleware());
+        restServer.use(httpRateLimiter.getPostMiddleware());
+        restServer.use(concurrentRequestLimiter.getPostMiddleware());
         restServer.use(cors({
             maxAge: 24*60*60*1000
         }));
