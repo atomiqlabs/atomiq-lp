@@ -1053,62 +1053,64 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                 )
             );
 
-            if(this.spvSwapHandler.stickyAddresses!=null) {
-                commands.push(
-                    createCommand(
-                        "addstickyaddress",
-                        "Adds a bitcoin sticky address to be used for SPV-vault based from BTC swaps. This ensures the specified output wallet address always gets the same Bitcoin deposit address!",
-                        {
-                            args: {
-                                chainId: {
-                                    base: true,
-                                    description: "Chain ID to recover the spv vaults for",
-                                    parser: cmdEnumParser<string>(allowedChains, false)
-                                },
-                                address: {
-                                    base: true,
-                                    description: "Smart chain address of the client",
-                                    parser: cmdStringParser(0, undefined, false)
-                                }
+            commands.push(
+                createCommand(
+                    "addstickyaddress",
+                    "Adds a bitcoin sticky address to be used for SPV-vault based from BTC swaps. This ensures the specified output wallet address always gets the same Bitcoin deposit address!",
+                    {
+                        args: {
+                            chainId: {
+                                base: true,
+                                description: "Chain ID to recover the spv vaults for",
+                                parser: cmdEnumParser<string>(allowedChains, false)
                             },
-                            parser: async (args, sendLine) => {
-                                const btcAddress = await this.bitcoinWallet.getAddress();
-
-                                await this.spvSwapHandler.addStickyAddress(args.chainId, args.address, btcAddress);
-
-                                return {
-                                    success: true,
-                                    btcAddress
-                                };
+                            address: {
+                                base: true,
+                                description: "Smart chain address of the client",
+                                parser: cmdStringParser(0, undefined, false)
                             }
+                        },
+                        parser: async (args, sendLine) => {
+                            if(this.spvSwapHandler.stickyAddresses==null) throw new Error("Sticky addresses are not supported! Update the lp-lib!");
+
+                            const btcAddress = await this.bitcoinWallet.getAddress();
+
+                            await this.spvSwapHandler.addStickyAddress(args.chainId, args.address, btcAddress);
+
+                            return {
+                                success: true,
+                                btcAddress
+                            };
                         }
-                    )
-                );
+                    }
+                )
+            );
 
-                commands.push(
-                    createCommand(
-                        "liststickyaddresses",
-                        "Lists all bitcoin sticky addresses to be used for SPV-vault based from BTC swaps. This ensures the specified output wallet address always gets the same Bitcoin deposit address!",
-                        {
-                            args: {},
-                            parser: async (args, sendLine) => {
-                                let result: {[chainId: string]: {[wallet: string]: string}} = {};
+            commands.push(
+                createCommand(
+                    "liststickyaddresses",
+                    "Lists all bitcoin sticky addresses to be used for SPV-vault based from BTC swaps. This ensures the specified output wallet address always gets the same Bitcoin deposit address!",
+                    {
+                        args: {},
+                        parser: async (args, sendLine) => {
+                            if(this.spvSwapHandler.stickyAddresses==null) throw new Error("Sticky addresses are not supported! Update the lp-lib!");
 
-                                for(let addressIdentifier in this.spvSwapHandler.stickyAddresses.data) {
-                                    const btcAddress = this.spvSwapHandler.stickyAddresses.data[addressIdentifier].address;
-                                    const [chainId, address] = addressIdentifier.split("-");
-                                    (result[chainId] ??= {})[address] = btcAddress;
-                                }
+                            let result: {[chainId: string]: {[wallet: string]: string}} = {};
 
-                                return {
-                                    success: true,
-                                    result
-                                };
+                            for(let addressIdentifier in this.spvSwapHandler.stickyAddresses.data) {
+                                const btcAddress = this.spvSwapHandler.stickyAddresses.data[addressIdentifier].address;
+                                const [chainId, address] = addressIdentifier.split("-");
+                                (result[chainId] ??= {})[address] = btcAddress;
                             }
+
+                            return {
+                                success: true,
+                                result
+                            };
                         }
-                    )
-                );
-            }
+                    }
+                )
+            );
 
         }
 
