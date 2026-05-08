@@ -299,7 +299,8 @@ export class IntermediaryRunner extends EventEmitter {
 
                         vaultsCheckInterval: 60*1000,
                         maxUnclaimedWithdrawals: 5
-                    }
+                    },
+                    new StorageManager(this.directory+"/frombtc_spv_sticky_addresses")
                 );
                 removeAllowedAssets(this.spvSwapHandler, IntermediaryConfig.ONCHAIN_SPV.EXCLUDE_ASSETS);
                 this.swapHandlers.push(this.spvSwapHandler);
