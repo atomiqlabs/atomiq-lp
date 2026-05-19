@@ -240,7 +240,9 @@ export class IntermediaryRunner extends EventEmitter {
                     txCheckInterval: 10 * 1000,
 
                     max: IntermediaryConfig.ONCHAIN.MAX_TO_BTC ?? IntermediaryConfig.ONCHAIN.MAX,
-                    min: IntermediaryConfig.ONCHAIN.MIN_TO_BTC ?? IntermediaryConfig.ONCHAIN.MIN
+                    min: IntermediaryConfig.ONCHAIN.MIN_TO_BTC ?? IntermediaryConfig.ONCHAIN.MIN,
+
+                    minMaxOverrides: IntermediaryConfig.ONCHAIN.MIN_MAX_OVERRIDES_TO_BTC
                 }
             );
             removeAllowedAssets(tobtc, IntermediaryConfig.ONCHAIN.EXCLUDE_ASSETS);
@@ -259,7 +261,9 @@ export class IntermediaryRunner extends EventEmitter {
                     swapCsvDelta: 72,
 
                     max: IntermediaryConfig.ONCHAIN.MAX_FROM_BTC ?? IntermediaryConfig.ONCHAIN.MAX,
-                    min: IntermediaryConfig.ONCHAIN.MIN_FROM_BTC ?? IntermediaryConfig.ONCHAIN.MIN
+                    min: IntermediaryConfig.ONCHAIN.MIN_FROM_BTC ?? IntermediaryConfig.ONCHAIN.MIN,
+
+                    minMaxOverrides: IntermediaryConfig.ONCHAIN.MIN_MAX_OVERRIDES_FROM_BTC
                 }
             );
             removeAllowedAssets(frombtc, IntermediaryConfig.ONCHAIN.EXCLUDE_ASSETS);
@@ -279,6 +283,7 @@ export class IntermediaryRunner extends EventEmitter {
                 feePPM: IntermediaryConfig.ONCHAIN_SPV.FEE_PERCENTAGE,
                 max: IntermediaryConfig.ONCHAIN_SPV.MAX,
                 min: IntermediaryConfig.ONCHAIN_SPV.MIN,
+                minMaxOverrides: IntermediaryConfig.ONCHAIN_SPV.MIN_MAX_OVERRIDES,
                 gasTokenMax,
                 maxInflightSwaps: IntermediaryConfig.ONCHAIN_SPV.MAX_INFLIGHT_SWAPS
             };
@@ -312,7 +317,8 @@ export class IntermediaryRunner extends EventEmitter {
                 baseFee: IntermediaryConfig.LN.BASE_FEE,
                 feePPM: IntermediaryConfig.LN.FEE_PERCENTAGE,
                 max: IntermediaryConfig.LN.MAX,
-                min: IntermediaryConfig.LN.MIN
+                min: IntermediaryConfig.LN.MIN,
+                minMaxOverrides: IntermediaryConfig.LN.MIN_MAX_OVERRIDES
             };
             const tobtcln = new ToBtcLnAbs(
                 new IntermediaryStorageManager(this.directory+"/tobtcln"),

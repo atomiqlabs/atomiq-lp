@@ -74,6 +74,14 @@ const IntermediaryConfigTemplate = {
             allowedChains
         ),
 
+        MIN_MAX_OVERRIDES: dictionaryParserWithKeys(
+            objectParser({
+                min: decimalToBigIntParser(8, 0),
+                max: decimalToBigIntParser(8, 0)
+            }, undefined, true),
+            allowedChains, undefined, true
+        ),
+
         MAX_INFLIGHT_SWAPS: numberParser(false, 1, undefined, true),
         MAX_INFLIGHT_AUTO_SWAPS: numberParser(false, 1, undefined, true)
     }, null, true),
@@ -90,6 +98,22 @@ const IntermediaryConfigTemplate = {
         MIN_FROM_BTC: decimalToBigIntParser(8, 0, undefined, true),
         MAX_FROM_BTC: decimalToBigIntParser(8, 0, undefined, true),
 
+        MIN_MAX_OVERRIDES_TO_BTC: dictionaryParserWithKeys(
+            objectParser({
+                min: decimalToBigIntParser(8, 0),
+                max: decimalToBigIntParser(8, 0)
+            }, undefined, true),
+            allowedChains, undefined, true
+        ),
+
+        MIN_MAX_OVERRIDES_FROM_BTC: dictionaryParserWithKeys(
+            objectParser({
+                min: decimalToBigIntParser(8, 0),
+                max: decimalToBigIntParser(8, 0)
+            }, undefined, true),
+            allowedChains, undefined, true
+        ),
+
         NETWORK_FEE_ADD_PERCENTAGE: numberParser(true, 0, null),
 
         EXCLUDE_ASSETS: arrayParser(stringParser(), true),
@@ -104,6 +128,15 @@ const IntermediaryConfigTemplate = {
         FEE_PERCENTAGE: percentageToPpmParser(0),
         MIN: decimalToBigIntParser(8, 0),
         MAX: decimalToBigIntParser(8, 0),
+
+        MIN_MAX_OVERRIDES: dictionaryParserWithKeys(
+            objectParser({
+                min: decimalToBigIntParser(8, 0),
+                max: decimalToBigIntParser(8, 0)
+            }, undefined, true),
+            allowedChains, undefined, true
+        ),
+
         GAS_MAX: dictionaryParserWithKeys(
             numberParser(true, 0, undefined, true),
             allowedChains
