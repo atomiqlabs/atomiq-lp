@@ -686,7 +686,11 @@ export class IntermediaryRunner extends EventEmitter {
         for(let chainId in this.multichainData.chains) {
             const chainData = this.multichainData.chains[chainId];
             await chainData.swapContract.start();
-            if(chainData.swapContract.claimDeposits!=null) await chainData.swapContract.claimDeposits(chainData.signer, {waitForConfirmation: true});
+            try {
+                if(chainData.swapContract.claimDeposits!=null) await chainData.swapContract.claimDeposits(chainData.signer, {waitForConfirmation: true});
+            } catch (e) {
+                console.error(`[Main]: Failed to claim deposits for ${chainId}: `, e);
+            }
             await chainData.chainEvents.init();
         }
 
