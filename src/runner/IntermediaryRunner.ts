@@ -245,48 +245,18 @@ export class IntermediaryRunner extends EventEmitter {
 
                     txCheckInterval: 10 * 1000,
 
-                    max: toBtcConfig?.MAX_TO_BTC ?? toBtcConfig.MAX,
-                    min: toBtcConfig.MIN_TO_BTC ?? toBtcConfig.MIN,
+                    max: (toBtcConfig as any).MAX_TO_BTC ?? toBtcConfig.MAX,
+                    min: (toBtcConfig as any).MIN_TO_BTC ?? toBtcConfig.MIN,
 
-                    minMaxOverrides: toBtcConfig.MIN_MAX_OVERRIDES_TO_BTC ?? toBtcConfig.MIN_MAX_OVERRIDES
+                    minMaxOverrides: (toBtcConfig as any).MIN_MAX_OVERRIDES_TO_BTC ?? (toBtcConfig as any).MIN_MAX_OVERRIDES
                 }
             );
             removeAllowedAssets(tobtc, toBtcConfig.EXCLUDE_ASSETS);
             this.swapHandlers.push(tobtc);
         }
-        if(IntermediaryConfig.ONCHAIN!=null) {
-            const swapConfig = {
-            };
-            const tobtc = new ToBtcAbs(
-                new IntermediaryStorageManager(this.directory + "/tobtc"),
-                "/tobtc",
-                this.multichainData,
-                this.bitcoinWallet,
-                this.prices,
-                this.bitcoinRpc,
-                {
-                    ...globalConfig,
-                    ...swapConfig,
-                    sendSafetyFactor: CHAIN_SEND_SAFETY_FACTOR,
 
-                    minChainCltv: 10n,
-
-                    networkFeeMultiplier: 1+(IntermediaryConfig.ONCHAIN.NETWORK_FEE_ADD_PERCENTAGE/100),
-                    minConfirmations: 1,
-                    maxConfirmations: 6,
-                    maxConfTarget: 12,
-                    minConfTarget: 1,
-
-                    txCheckInterval: 10 * 1000,
-
-                    max: IntermediaryConfig.ONCHAIN.MAX_TO_BTC ?? IntermediaryConfig.ONCHAIN.MAX,
-                    min: IntermediaryConfig.ONCHAIN.MIN_TO_BTC ?? IntermediaryConfig.ONCHAIN.MIN,
-
-                    minMaxOverrides: IntermediaryConfig.ONCHAIN.MIN_MAX_OVERRIDES_TO_BTC
-                }
-            );
-            removeAllowedAssets(tobtc, IntermediaryConfig.ONCHAIN.EXCLUDE_ASSETS);
-            this.swapHandlers.push(tobtc);
+        const fromBtcConfig = IntermediaryConfig.FROM_BTC ?? IntermediaryConfig.ONCHAIN;
+        if(fromBtcConfig!=null && (fromBtcConfig as any).LEGACY_SWAPS!=="disable") {
             const frombtc = new FromBtcAbs(
                 new IntermediaryStorageManager(this.directory + "/frombtc"),
                 "/frombtc",
@@ -295,71 +265,71 @@ export class IntermediaryRunner extends EventEmitter {
                 this.prices,
                 {
                     ...globalConfig,
-                    ...swapConfig,
+                    baseFee: fromBtcConfig.BASE_FEE,
+                    feePPM: fromBtcConfig.FEE_PERCENTAGE,
+                    maxInflightSwaps: fromBtcConfig.MAX_INFLIGHT_SWAPS,
 
                     confirmations: 2,
                     swapCsvDelta: 72,
 
-                    max: IntermediaryConfig.ONCHAIN.MAX_FROM_BTC ?? IntermediaryConfig.ONCHAIN.MAX,
-                    min: IntermediaryConfig.ONCHAIN.MIN_FROM_BTC ?? IntermediaryConfig.ONCHAIN.MIN,
+                    max: (fromBtcConfig as any).MAX_FROM_BTC ?? fromBtcConfig.MAX,
+                    min: (fromBtcConfig as any).MIN_FROM_BTC ?? fromBtcConfig.MIN,
 
-                    minMaxOverrides: IntermediaryConfig.ONCHAIN.MIN_MAX_OVERRIDES_FROM_BTC
+                    minMaxOverrides: (fromBtcConfig as any).MIN_MAX_OVERRIDES_FROM_BTC ?? (fromBtcConfig as any).MIN_MAX_OVERRIDES
                 }
             );
-            removeAllowedAssets(frombtc, IntermediaryConfig.ONCHAIN.EXCLUDE_ASSETS);
+            removeAllowedAssets(frombtc, fromBtcConfig.EXCLUDE_ASSETS);
+            const legacySwapHandling: "enable" | "legacy_chains_only" | "disable" | undefined = (fromBtcConfig as any).LEGACY_SWAPS;
+            if(legacySwapHandling==="legacy_chains_only") {
+                for(let chain in frombtc.allowedTokens) {
+                    //If the given chain supports the newer swap protocol, use only that
+                    if(this.multichainData.chains[chain].spvVaultContract!=null)
+                        frombtc.allowedTokens[chain].clear();
+                }
+            }
             this.swapHandlers.push(frombtc);
         }
 
-        if(IntermediaryConfig.ONCHAIN_SPV!=null) {
+        const fromBtcSpvConfig = IntermediaryConfig.FROM_BTC ?? IntermediaryConfig.ONCHAIN_SPV;
+        if(fromBtcSpvConfig!=null && this.spvVaultSigner!=null) {
             const gasTokenMax = {};
-            for(let chainId in IntermediaryConfig.ONCHAIN_SPV.GAS_MAX) {
-                if(IntermediaryConfig.ONCHAIN_SPV.GAS_MAX[chainId]==null) continue;
+            for(let chainId in fromBtcSpvConfig.GAS_MAX) {
+                if(fromBtcSpvConfig.GAS_MAX[chainId]==null) continue;
                 if(this.multichainData.chains[chainId]==null) continue;
                 const tokenData = this.prices.getTokenData(this.multichainData.chains[chainId].chainInterface.getNativeCurrencyAddress(), chainId);
-                gasTokenMax[chainId] = fromDecimal(IntermediaryConfig.ONCHAIN_SPV.GAS_MAX[chainId].toFixed(tokenData.decimals), tokenData.decimals);
+                gasTokenMax[chainId] = fromDecimal(fromBtcSpvConfig.GAS_MAX[chainId].toFixed(tokenData.decimals), tokenData.decimals);
             }
-            const swapConfig = {
-                baseFee: IntermediaryConfig.ONCHAIN_SPV.BASE_FEE,
-                feePPM: IntermediaryConfig.ONCHAIN_SPV.FEE_PERCENTAGE,
-                max: IntermediaryConfig.ONCHAIN_SPV.MAX,
-                min: IntermediaryConfig.ONCHAIN_SPV.MIN,
-                minMaxOverrides: IntermediaryConfig.ONCHAIN_SPV.MIN_MAX_OVERRIDES,
-                gasTokenMax,
-                maxInflightSwaps: IntermediaryConfig.ONCHAIN_SPV.MAX_INFLIGHT_SWAPS
-            };
 
-            if(this.spvVaultSigner!=null) {
-                this.spvSwapHandler = new SpvVaultSwapHandler(
-                    new IntermediaryStorageManager(this.directory + "/frombtc_spv"),
-                    new StorageManager(this.directory+"/frombtc_spv_vaults"),
-                    "/frombtc_spv",
-                    this.multichainData,
-                    this.prices,
-                    this.bitcoinWallet,
-                    this.bitcoinRpc,
-                    this.spvVaultSigner,
-                    {
-                        ...globalConfig,
-                        ...swapConfig,
+            this.spvSwapHandler = new SpvVaultSwapHandler(
+                new IntermediaryStorageManager(this.directory + "/frombtc_spv"),
+                new StorageManager(this.directory+"/frombtc_spv_vaults"),
+                "/frombtc_spv",
+                this.multichainData,
+                this.prices,
+                this.bitcoinWallet,
+                this.bitcoinRpc,
+                this.spvVaultSigner,
+                {
+                    ...globalConfig,
+                    baseFee: fromBtcSpvConfig.BASE_FEE,
+                    feePPM: fromBtcSpvConfig.FEE_PERCENTAGE,
+                    max: fromBtcSpvConfig.MAX,
+                    min: fromBtcSpvConfig.MIN,
+                    minMaxOverrides: fromBtcSpvConfig.MIN_MAX_OVERRIDES,
+                    gasTokenMax,
+                    maxInflightSwaps: fromBtcSpvConfig.MAX_INFLIGHT_SWAPS,
 
-                        vaultsCheckInterval: 60*1000,
-                        maxUnclaimedWithdrawals: 5
-                    },
-                    new StorageManager(this.directory+"/frombtc_spv_sticky_addresses")
-                );
-                removeAllowedAssets(this.spvSwapHandler, IntermediaryConfig.ONCHAIN_SPV.EXCLUDE_ASSETS);
-                this.swapHandlers.push(this.spvSwapHandler);
-            }
+                    vaultsCheckInterval: 60*1000,
+                    maxUnclaimedWithdrawals: 5
+                },
+                new StorageManager(this.directory+"/frombtc_spv_sticky_addresses")
+            );
+            removeAllowedAssets(this.spvSwapHandler, fromBtcSpvConfig.EXCLUDE_ASSETS);
+            this.swapHandlers.push(this.spvSwapHandler);
         }
 
-        if(IntermediaryConfig.LN!=null) {
-            const swapConfig = {
-                baseFee: IntermediaryConfig.LN.BASE_FEE,
-                feePPM: IntermediaryConfig.LN.FEE_PERCENTAGE,
-                max: IntermediaryConfig.LN.MAX,
-                min: IntermediaryConfig.LN.MIN,
-                minMaxOverrides: IntermediaryConfig.LN.MIN_MAX_OVERRIDES
-            };
+        const toBtcLnConfig = IntermediaryConfig.TO_BTCLN ?? IntermediaryConfig.LN;
+        if(toBtcLnConfig!=null) {
             const tobtcln = new ToBtcLnAbs(
                 new IntermediaryStorageManager(this.directory+"/tobtcln"),
                 "/tobtcln",
@@ -368,21 +338,29 @@ export class IntermediaryRunner extends EventEmitter {
                 this.prices,
                 {
                     ...globalConfig,
-                    ...swapConfig,
+                    baseFee: toBtcLnConfig.BASE_FEE,
+                    feePPM: toBtcLnConfig.FEE_PERCENTAGE,
+                    max: toBtcLnConfig.MAX,
+                    min: toBtcLnConfig.MIN,
+                    minMaxOverrides: toBtcLnConfig.MIN_MAX_OVERRIDES,
 
                     routingFeeMultiplier: 2n,
 
                     minSendCltv: 10n,
 
-                    allowShortExpiry: IntermediaryConfig.LN.ALLOW_LN_SHORT_EXPIRY,
-                    allowProbeFailedSwaps: IntermediaryConfig.LN.ALLOW_NON_PROBABLE_SWAPS,
-                    maxInflightSwaps: IntermediaryConfig.LN.MAX_INFLIGHT_SWAPS,
+                    allowShortExpiry: toBtcLnConfig.ALLOW_LN_SHORT_EXPIRY,
+                    allowProbeFailedSwaps: toBtcLnConfig.ALLOW_NON_PROBABLE_SWAPS,
+                    maxInflightSwaps: toBtcLnConfig.MAX_INFLIGHT_SWAPS,
 
                     lnSendBitcoinBlockTimeSafetyFactorPPM: LN_SAFETY_FACTOR_OVERRIDE_PPM
                 }
             );
-            removeAllowedAssets(tobtcln, IntermediaryConfig.LN.EXCLUDE_ASSETS);
+            removeAllowedAssets(tobtcln, toBtcLnConfig.EXCLUDE_ASSETS);
             this.swapHandlers.push(tobtcln);
+        }
+
+        const fromBtcLnConfig = IntermediaryConfig.FROM_BTCLN ?? IntermediaryConfig.LN;
+        if(fromBtcLnConfig!=null && (fromBtcLnConfig as any).LEGACY_SWAPS!=="disabled") {
             const frombtcln = new FromBtcLnAbs(
                 new IntermediaryStorageManager(this.directory+"/frombtcln"),
                 "/frombtcln",
@@ -391,26 +369,40 @@ export class IntermediaryRunner extends EventEmitter {
                 this.prices,
                 {
                     ...globalConfig,
-                    ...swapConfig,
+                    baseFee: fromBtcLnConfig.BASE_FEE,
+                    feePPM: fromBtcLnConfig.FEE_PERCENTAGE,
+                    max: fromBtcLnConfig.MAX,
+                    min: fromBtcLnConfig.MIN,
+                    minMaxOverrides: fromBtcLnConfig.MIN_MAX_OVERRIDES,
 
                     minCltv: 20n,
 
                     swapCheckInterval: 1*60*1000,
-                    invoiceTimeoutSeconds: IntermediaryConfig.LN.INVOICE_EXPIRY_SECONDS,
-                    maxInflightSwaps: IntermediaryConfig.LN.MAX_INFLIGHT_SWAPS
+                    invoiceTimeoutSeconds: fromBtcLnConfig.INVOICE_EXPIRY_SECONDS,
+                    maxInflightSwaps: fromBtcLnConfig.MAX_INFLIGHT_SWAPS
                 }
             );
-            removeAllowedAssets(frombtcln, IntermediaryConfig.LN.EXCLUDE_ASSETS);
+            removeAllowedAssets(frombtcln, fromBtcLnConfig.EXCLUDE_ASSETS);
+            const legacySwapHandling: "enable" | "legacy_chains_only" | "disable" | undefined = (fromBtcLnConfig as any).LEGACY_SWAPS;
+            if(legacySwapHandling==="legacy_chains_only") {
+                for(let chain in frombtcln.allowedTokens) {
+                    //If the contract supports the new auto-swap way, use only that
+                    if(this.multichainData.chains[chain].swapContract.supportsInitWithoutClaimer)
+                        frombtcln.allowedTokens[chain].clear();
+                }
+            }
+            this.swapHandlers.push(frombtcln);
+        }
 
+        if(fromBtcLnConfig!=null) {
             const gasTokenMax = {};
-            for(let chainId in IntermediaryConfig.LN.GAS_MAX) {
-                if(IntermediaryConfig.LN.GAS_MAX[chainId]==null) continue;
+            for(let chainId in fromBtcLnConfig.GAS_MAX) {
+                if(fromBtcLnConfig.GAS_MAX[chainId]==null) continue;
                 if(this.multichainData.chains[chainId]==null) continue;
                 const tokenData = this.prices.getTokenData(this.multichainData.chains[chainId].chainInterface.getNativeCurrencyAddress(), chainId);
-                gasTokenMax[chainId] = fromDecimal(IntermediaryConfig.LN.GAS_MAX[chainId].toFixed(tokenData.decimals), tokenData.decimals);
+                gasTokenMax[chainId] = fromDecimal(fromBtcLnConfig.GAS_MAX[chainId].toFixed(tokenData.decimals), tokenData.decimals);
             }
 
-            this.swapHandlers.push(frombtcln);
             const frombtclnAuto = new FromBtcLnAuto(
                 new IntermediaryStorageManager(this.directory+"/frombtcln_auto"),
                 "/frombtcln_auto",
@@ -419,19 +411,24 @@ export class IntermediaryRunner extends EventEmitter {
                 this.prices,
                 {
                     ...globalConfig,
-                    ...swapConfig,
+                    baseFee: fromBtcLnConfig.BASE_FEE,
+                    feePPM: fromBtcLnConfig.FEE_PERCENTAGE,
+                    max: fromBtcLnConfig.MAX,
+                    min: fromBtcLnConfig.MIN,
+                    minMaxOverrides: fromBtcLnConfig.MIN_MAX_OVERRIDES,
 
                     minCltv: 20n,
 
                     swapCheckInterval: 1*60*1000,
-                    invoiceTimeoutSeconds: IntermediaryConfig.LN.INVOICE_EXPIRY_SECONDS,
+                    invoiceTimeoutSeconds: fromBtcLnConfig.INVOICE_EXPIRY_SECONDS,
                     gasTokenMax,
-                    maxInflightSwaps: IntermediaryConfig.LN.MAX_INFLIGHT_AUTO_SWAPS ?? IntermediaryConfig.LN.MAX_INFLIGHT_SWAPS
+                    maxInflightSwaps: fromBtcLnConfig.MAX_INFLIGHT_AUTO_SWAPS ?? fromBtcLnConfig.MAX_INFLIGHT_SWAPS
                 }
             );
-            removeAllowedAssets(frombtclnAuto, IntermediaryConfig.LN.EXCLUDE_ASSETS);
+            removeAllowedAssets(frombtclnAuto, fromBtcLnConfig.EXCLUDE_ASSETS);
             this.swapHandlers.push(frombtclnAuto);
         }
+
         if(IntermediaryConfig.ONCHAIN_TRUSTED!=null) {
             this.swapHandlers.push(
                 new FromBtcTrusted(
