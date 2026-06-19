@@ -57,15 +57,23 @@ function removeAllowedAssets(handler: SwapHandler<any>, assets: string[]) {
     if(assets==null) return;
     assets.forEach(val => {
         const arr = val.split("-");
-        if(arr.length!=2) return;
-        const [chain, asset] = arr;
-        const assetData = IntermediaryConfig.ASSETS[asset];
-        if(assetData==null) return;
-        const address = assetData.chains[chain]?.address;
-        if(address==null) return;
-        const handlerAssetSet = handler.allowedTokens[chain];
-        if(handlerAssetSet==null) return;
-        handlerAssetSet.delete(address);
+        if(arr.length===1) {
+            //Also allow blacklisting of all assets for a given chain
+            const chain = arr[0];
+            const handlerAssetSet = handler.allowedTokens[chain];
+            if(handlerAssetSet==null) return;
+            handlerAssetSet.clear();
+        } else {
+            if(arr.length!=2) return;
+            const [chain, asset] = arr;
+            const assetData = IntermediaryConfig.ASSETS[asset];
+            if(assetData==null) return;
+            const address = assetData.chains[chain]?.address;
+            if(address==null) return;
+            const handlerAssetSet = handler.allowedTokens[chain];
+            if(handlerAssetSet==null) return;
+            handlerAssetSet.delete(address);
+        }
     })
 }
 
@@ -211,11 +219,43 @@ export class IntermediaryRunner extends EventEmitter {
             minNativeBalances: this.minChainBalanceReserves
         };
 
+        const toBtcConfig = IntermediaryConfig.TO_BTC ?? IntermediaryConfig.ONCHAIN;
+        if(toBtcConfig!=null) {
+            const tobtc = new ToBtcAbs(
+                new IntermediaryStorageManager(this.directory + "/tobtc"),
+                "/tobtc",
+                this.multichainData,
+                this.bitcoinWallet,
+                this.prices,
+                this.bitcoinRpc,
+                {
+                    ...globalConfig,
+                    baseFee: toBtcConfig.BASE_FEE,
+                    feePPM: toBtcConfig.FEE_PERCENTAGE,
+                    maxInflightSwaps: toBtcConfig.MAX_INFLIGHT_SWAPS,
+                    sendSafetyFactor: CHAIN_SEND_SAFETY_FACTOR,
+
+                    minChainCltv: 10n,
+
+                    networkFeeMultiplier: 1+(toBtcConfig.NETWORK_FEE_ADD_PERCENTAGE/100),
+                    minConfirmations: 1,
+                    maxConfirmations: 6,
+                    maxConfTarget: 12,
+                    minConfTarget: 1,
+
+                    txCheckInterval: 10 * 1000,
+
+                    max: toBtcConfig?.MAX_TO_BTC ?? toBtcConfig.MAX,
+                    min: toBtcConfig.MIN_TO_BTC ?? toBtcConfig.MIN,
+
+                    minMaxOverrides: toBtcConfig.MIN_MAX_OVERRIDES_TO_BTC ?? toBtcConfig.MIN_MAX_OVERRIDES
+                }
+            );
+            removeAllowedAssets(tobtc, toBtcConfig.EXCLUDE_ASSETS);
+            this.swapHandlers.push(tobtc);
+        }
         if(IntermediaryConfig.ONCHAIN!=null) {
             const swapConfig = {
-                baseFee: IntermediaryConfig.ONCHAIN.BASE_FEE,
-                feePPM: IntermediaryConfig.ONCHAIN.FEE_PERCENTAGE,
-                maxInflightSwaps: IntermediaryConfig.ONCHAIN.MAX_INFLIGHT_SWAPS
             };
             const tobtc = new ToBtcAbs(
                 new IntermediaryStorageManager(this.directory + "/tobtc"),
