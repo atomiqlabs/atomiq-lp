@@ -360,7 +360,7 @@ export class IntermediaryRunner extends EventEmitter {
         }
 
         const fromBtcLnConfig = IntermediaryConfig.FROM_BTCLN ?? IntermediaryConfig.LN;
-        if(fromBtcLnConfig!=null && (fromBtcLnConfig as any).LEGACY_SWAPS!=="disabled") {
+        if(fromBtcLnConfig!=null && (fromBtcLnConfig as any).LEGACY_SWAPS!=="disable") {
             const frombtcln = new FromBtcLnAbs(
                 new IntermediaryStorageManager(this.directory+"/frombtcln"),
                 "/frombtcln",

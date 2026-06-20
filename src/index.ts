@@ -121,7 +121,13 @@ async function main() {
     let lightningWallet: ILightningWallet;
     let lndClient: LNDClient;
     let spvVaultSigner: ISpvVaultSigner;
-    if(IntermediaryConfig.ONCHAIN_TRUSTED!=null || IntermediaryConfig.ONCHAIN!=null || IntermediaryConfig.ONCHAIN_SPV!=null) {
+    if(
+        IntermediaryConfig.ONCHAIN_TRUSTED!=null ||
+        IntermediaryConfig.ONCHAIN!=null ||
+        IntermediaryConfig.ONCHAIN_SPV!=null ||
+        IntermediaryConfig.TO_BTC!=null ||
+        IntermediaryConfig.FROM_BTC!=null
+    ) {
         bitcoinRpc = new BitcoindRpc(
             IntermediaryConfig.BITCOIND.PROTOCOL,
             IntermediaryConfig.BITCOIND.RPC_USERNAME,
@@ -151,12 +157,21 @@ async function main() {
             storageDirectory: directory+"/lndaddresspool"
         });
     }
-    if(IntermediaryConfig.LN!=null || IntermediaryConfig.LN_TRUSTED!=null) {
+    if(
+        IntermediaryConfig.LN!=null ||
+        IntermediaryConfig.LN_TRUSTED!=null ||
+        IntermediaryConfig.TO_BTCLN!=null ||
+        IntermediaryConfig.FROM_BTCLN!=null
+) {
         if(lndClient==null) lndClient = new LNDClient(IntermediaryConfig.LND);
         lightningWallet = new LNDLightningWallet(lndClient);
     }
-    if(IntermediaryConfig.ONCHAIN_SPV!=null) {
-        spvVaultSigner = new BitcoinSpvVaultSigner(IntermediaryConfig.ONCHAIN_SPV.MNEMONIC_FILE, BITCOIN_NETWORK);
+    if(
+        IntermediaryConfig.ONCHAIN_SPV!=null ||
+        IntermediaryConfig.FROM_BTC!=null
+    ) {
+        const config = IntermediaryConfig.FROM_BTC ?? IntermediaryConfig.ONCHAIN_SPV;
+        spvVaultSigner = new BitcoinSpvVaultSigner(config.MNEMONIC_FILE, BITCOIN_NETWORK);
     }
 
     //Create multichain data object
