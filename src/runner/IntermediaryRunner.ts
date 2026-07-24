@@ -325,6 +325,11 @@ export class IntermediaryRunner extends EventEmitter {
                 new StorageManager(this.directory+"/frombtc_spv_sticky_addresses")
             );
             removeAllowedAssets(this.spvSwapHandler, fromBtcSpvConfig.EXCLUDE_ASSETS);
+            for(let chain in this.spvSwapHandler.allowedTokens) {
+                //If the given chain doesn't support the newer swap protocol, remove that chain's tokens
+                if(this.multichainData.chains[chain].spvVaultContract==null)
+                    this.spvSwapHandler.allowedTokens[chain].clear();
+            }
             this.swapHandlers.push(this.spvSwapHandler);
         }
 
@@ -426,6 +431,11 @@ export class IntermediaryRunner extends EventEmitter {
                 }
             );
             removeAllowedAssets(frombtclnAuto, fromBtcLnConfig.EXCLUDE_ASSETS);
+            for(let chain in frombtclnAuto.allowedTokens) {
+                //If the given chain doesn't support the newer swap protocol, remove that chain's tokens
+                if(!this.multichainData.chains[chain].swapContract.supportsInitWithoutClaimer)
+                    frombtclnAuto.allowedTokens[chain].clear();
+            }
             this.swapHandlers.push(frombtclnAuto);
         }
 
