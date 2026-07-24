@@ -27,6 +27,24 @@ function getConfigs<T extends { [key: string]: { configuration: any } }>(chainDa
 
 export const allowedChains = getAllowedChains(RegisteredChains);
 
+const RouteConfigBase = {
+    BASE_FEE: decimalToBigIntParser(8, 0),
+    FEE_PERCENTAGE: percentageToPpmParser(0),
+    MIN: decimalToBigIntParser(8, 0),
+    MAX: decimalToBigIntParser(8, 0),
+
+    MIN_MAX_OVERRIDES: dictionaryParserWithKeys(
+        objectParser({
+            min: decimalToBigIntParser(8, 0),
+            max: decimalToBigIntParser(8, 0)
+        }, undefined, true),
+        allowedChains, undefined, true
+    ),
+
+    EXCLUDE_ASSETS: arrayParser(stringParser(), true),
+    MAX_INFLIGHT_SWAPS: numberParser(false, 1, undefined, true),
+} as const;
+
 const IntermediaryConfigTemplate = {
     ...getConfigs(RegisteredChains),
 
@@ -57,6 +75,27 @@ const IntermediaryConfigTemplate = {
         if(data.MACAROON==null && data.MACAROON_FILE==null) throw new Error("Certificate for LND not provided, provide either MACAROON or MACAROON_FILE config!");
     }),
 
+    TO_BTCLN: objectParser({
+        ...RouteConfigBase,
+
+        ALLOW_NON_PROBABLE_SWAPS: booleanParser(),
+        ALLOW_LN_SHORT_EXPIRY: booleanParser(),
+    }, null, true),
+
+    FROM_BTCLN: objectParser({
+        ...RouteConfigBase,
+
+        LEGACY_SWAPS: enumParser(["disable", "legacy_chains_only", "enable"] as const, true),
+
+        INVOICE_EXPIRY_SECONDS: numberParser(false, 0, 3600, true),
+        MAX_INFLIGHT_AUTO_SWAPS: numberParser(false, 1, undefined, true),
+
+        GAS_MAX: dictionaryParserWithKeys(
+            numberParser(true, 0, undefined, true),
+            allowedChains
+        ),
+    }, null, true),
+
     LN: objectParser({
         BASE_FEE: decimalToBigIntParser(8, 0),
         FEE_PERCENTAGE: percentageToPpmParser(0),
@@ -84,6 +123,24 @@ const IntermediaryConfigTemplate = {
 
         MAX_INFLIGHT_SWAPS: numberParser(false, 1, undefined, true),
         MAX_INFLIGHT_AUTO_SWAPS: numberParser(false, 1, undefined, true)
+    }, null, true),
+
+    TO_BTC: objectParser({
+        ...RouteConfigBase,
+
+        NETWORK_FEE_ADD_PERCENTAGE: numberParser(true, 0, null),
+    }, null, true),
+
+    FROM_BTC: objectParser({
+        ...RouteConfigBase,
+
+        LEGACY_SWAPS: enumParser(["disable", "legacy_chains_only", "enable"] as const, true),
+        MNEMONIC_FILE: stringParser(null, null, false),
+
+        GAS_MAX: dictionaryParserWithKeys(
+            numberParser(true, 0, undefined, true),
+            allowedChains
+        ),
     }, null, true),
 
     ONCHAIN: objectParser({
@@ -153,9 +210,9 @@ const IntermediaryConfigTemplate = {
         MIN: decimalToBigIntParser(8, 0),
         MAX: decimalToBigIntParser(8, 0),
 
-        INVOICE_EXPIRY_SECONDS: numberParser(false, 0, 3600, true),
+        MAX_INFLIGHT_SWAPS: numberParser(false, 1, undefined, true),
 
-        MAX_INFLIGHT_SWAPS: numberParser(false, 1, undefined, true)
+        INVOICE_EXPIRY_SECONDS: numberParser(false, 0, 3600, true)
     }, null, true),
 
     ONCHAIN_TRUSTED: objectParser({
@@ -164,9 +221,9 @@ const IntermediaryConfigTemplate = {
         MIN: decimalToBigIntParser(8, 0),
         MAX: decimalToBigIntParser(8, 0),
 
-        SWAP_EXPIRY_SECONDS: numberParser(false, 0, 72*3600, true),
+        MAX_INFLIGHT_SWAPS: numberParser(false, 1, undefined, true),
 
-        MAX_INFLIGHT_SWAPS: numberParser(false, 1, undefined, true)
+        SWAP_EXPIRY_SECONDS: numberParser(false, 0, 72*3600, true)
     }, null, true),
 
     PRICE_SOURCE: enumParser(["binance", "okx"], true),

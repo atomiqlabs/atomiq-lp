@@ -992,7 +992,6 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                         parser: async (args, sendLine) => {
                             const {chainId, ticker} = this.fromReadableToken(args.asset);
                             const tokenData = this.tokens[ticker].chains[chainId];
-                            const amountToken0 = fromDecimal(args.amount, tokenData.decimals);
 
                             const vaults = await this.spvSwapHandler.Vaults.listVaults(chainId, tokenData.address);
                             sortVaults(vaults);
@@ -1002,10 +1001,13 @@ export class IntermediaryRunnerWrapper extends IntermediaryRunner {
                             if(!vault.data.isOpened()) throw new Error("Vault is not opened yet!");
 
                             const gasTokenData = this.addressesToTokens[chainId][vault.balances[1].token];
+                            const amountToken0 = args.amount==="all" ? vault.balances[0].scaledAmount : fromDecimal(args.amount, tokenData.decimals);
                             let amountToken1: bigint = 0n;
                             if(args.gasAmount!=null) {
-                                amountToken1 = fromDecimal(args.gasAmount, gasTokenData.decimals);
+                                amountToken1 = args.gasAmount==="all" ? vault.balances[1].scaledAmount : fromDecimal(args.gasAmount, gasTokenData.decimals);
                             }
+
+                            if(amountToken0===0n && amountToken1===0n) throw new Error("Both withdrawal amounts are zero!");
 
                             const rawAmounts = vault.toRawAmounts([amountToken0, amountToken1]);
                             const adjustedAmounts = vault.fromRawAmounts(rawAmounts);
