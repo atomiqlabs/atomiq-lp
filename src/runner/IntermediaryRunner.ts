@@ -349,7 +349,7 @@ export class IntermediaryRunner extends EventEmitter {
                     min: toBtcLnConfig.MIN,
                     minMaxOverrides: toBtcLnConfig.MIN_MAX_OVERRIDES,
 
-                    routingFeeMultiplier: 2n,
+                    routingFeeMultiplier: 1.5,
 
                     minSendCltv: 10n,
 

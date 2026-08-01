@@ -26,7 +26,7 @@
     "@atomiqlabs/chain-evm": "^2.4.3",
     "@atomiqlabs/chain-solana": "^13.5.13",
     "@atomiqlabs/chain-starknet": "^8.4.3",
-    "@atomiqlabs/lp-lib": "^17.5.0",
+    "@atomiqlabs/lp-lib": "^17.5.3",
     "@atomiqlabs/server-base": "3.0.2",
     "@atomiqlabs/wallet-lnd": "^7.1.0",
     "@coral-xyz/anchor": "0.29.0",
