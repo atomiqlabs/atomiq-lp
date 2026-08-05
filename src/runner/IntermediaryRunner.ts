@@ -441,31 +441,6 @@ export class IntermediaryRunner extends EventEmitter {
             this.swapHandlers.push(frombtclnAuto);
         }
 
-        if(IntermediaryConfig.ONCHAIN_TRUSTED!=null) {
-            this.swapHandlers.push(
-                new FromBtcTrusted(
-                    new IntermediaryStorageManager(this.directory + "/frombtc_trusted"),
-                    "/frombtc_trusted",
-                    this.multichainData,
-                    this.bitcoinWallet,
-                    this.prices,
-                    this.bitcoinRpc,
-                    {
-                        ...globalConfig,
-                        baseFee: IntermediaryConfig.ONCHAIN_TRUSTED.BASE_FEE,
-                        feePPM: IntermediaryConfig.ONCHAIN_TRUSTED.FEE_PERCENTAGE,
-                        max: IntermediaryConfig.ONCHAIN_TRUSTED.MAX,
-                        min: IntermediaryConfig.ONCHAIN_TRUSTED.MIN,
-
-                        doubleSpendCheckInterval: 5000,
-                        swapAddressExpiry: IntermediaryConfig.ONCHAIN_TRUSTED.SWAP_EXPIRY_SECONDS ?? 3*3600,
-                        recommendFeeMultiplier: 1,
-
-                        maxInflightSwaps: IntermediaryConfig.ONCHAIN_TRUSTED.MAX_INFLIGHT_SWAPS
-                    }
-                )
-            );
-        }
         if(IntermediaryConfig.LN_TRUSTED!=null) {
             this.swapHandlers.push(
                 new FromBtcLnTrusted(

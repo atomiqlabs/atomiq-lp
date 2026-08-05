@@ -122,7 +122,6 @@ async function main() {
     let lndClient: LNDClient;
     let spvVaultSigner: ISpvVaultSigner;
     if(
-        IntermediaryConfig.ONCHAIN_TRUSTED!=null ||
         IntermediaryConfig.ONCHAIN!=null ||
         IntermediaryConfig.ONCHAIN_SPV!=null ||
         IntermediaryConfig.TO_BTC!=null ||

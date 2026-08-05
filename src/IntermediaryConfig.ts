@@ -215,17 +215,6 @@ const IntermediaryConfigTemplate = {
         INVOICE_EXPIRY_SECONDS: numberParser(false, 0, 3600, true)
     }, null, true),
 
-    ONCHAIN_TRUSTED: objectParser({
-        BASE_FEE: decimalToBigIntParser(8, 0),
-        FEE_PERCENTAGE: percentageToPpmParser(0),
-        MIN: decimalToBigIntParser(8, 0),
-        MAX: decimalToBigIntParser(8, 0),
-
-        MAX_INFLIGHT_SWAPS: numberParser(false, 1, undefined, true),
-
-        SWAP_EXPIRY_SECONDS: numberParser(false, 0, 72*3600, true)
-    }, null, true),
-
     PRICE_SOURCE: enumParser(["binance", "okx"], true),
     SECURITY_DEPOSIT_APY: percentageToPpmParser(0, undefined, true),
 
