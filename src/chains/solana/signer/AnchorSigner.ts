@@ -32,7 +32,7 @@ export function getSolanaSigner(configuration: {RPC_URL: string, MNEMONIC_FILE?:
         _signer = Keypair.fromSeed(derivedPath.key);
     }
 
-    const connection = new ConnectionWithRetries(configuration.RPC_URL, "processed");
+    const connection = new ConnectionWithRetries(configuration.RPC_URL, "confirmed");
     const AnchorSigner: (AnchorProvider & {signer: Keypair}) = new AnchorProvider(connection, new Wallet(_signer), {
         preflightCommitment: "processed"
     }) as any;
