@@ -511,7 +511,7 @@ export class IntermediaryRunner extends EventEmitter {
         const concurrentRequestLimiter = new ConnectionRateLimiter(IntermediaryConfig.REST.CONNECTION_LIMIT);
 
         const restServer = http2Express(express) as express.Express;
-        restServer.use(createBodySizeLimiter(8*1024));
+        restServer.use(createBodySizeLimiter(16*1024));
         if(this.keyBasedWhitelist!=null) restServer.use(this.keyBasedWhitelist.getMiddleware());
         restServer.use(httpRateLimiter.getPreMiddleware());
         restServer.use(concurrentRequestLimiter.getPreMiddleware());
