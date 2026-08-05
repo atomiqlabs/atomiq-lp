@@ -380,7 +380,8 @@ export class IntermediaryRunner extends EventEmitter {
                     min: fromBtcLnConfig.MIN,
                     minMaxOverrides: fromBtcLnConfig.MIN_MAX_OVERRIDES,
 
-                    minCltv: 20n,
+                    destinationHtlcTimeoutSeconds: 3_600n,
+                    ...{minCltv: 20n}, //Keep for compatibility
 
                     swapCheckInterval: 1*60*1000,
                     invoiceTimeoutSeconds: fromBtcLnConfig.INVOICE_EXPIRY_SECONDS,
@@ -422,7 +423,8 @@ export class IntermediaryRunner extends EventEmitter {
                     min: fromBtcLnConfig.MIN,
                     minMaxOverrides: fromBtcLnConfig.MIN_MAX_OVERRIDES,
 
-                    minCltv: 20n,
+                    destinationHtlcTimeoutSeconds: 3_600n,
+                    ...{minCltv: 20n}, //Keep for compatibility
 
                     swapCheckInterval: 1*60*1000,
                     invoiceTimeoutSeconds: fromBtcLnConfig.INVOICE_EXPIRY_SECONDS,
