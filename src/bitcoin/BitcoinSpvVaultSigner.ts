@@ -70,7 +70,6 @@ export class BitcoinSpvVaultSigner implements ISpvVaultSigner {
             psbt.signIdx(key.privateKey, vin, [0x01, 0x00]);
             psbt.finalizeIdx(vin);
         });
-        console.log("Raw tx: ", Buffer.from(psbt.toBytes(true, true)).toString("hex"));
         return Promise.resolve(psbt);
     }
 
