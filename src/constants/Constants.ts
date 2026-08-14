@@ -15,6 +15,7 @@ const BitcoinNetworkParams = {
 
 //Bitcoin
 export const BITCOIN_NETWORK = BitcoinNetworkParams[IntermediaryConfig.BITCOIND.NETWORK];
+if(BITCOIN_NETWORK==null) throw new Error("Invalid bitcoin network selected: "+IntermediaryConfig.BITCOIND.NETWORK);
 export const BITCOIN_BLOCKTIME = BigInt(process.env.BITCOIN_BLOCKTIME);
 
 //Swap safety
@@ -27,4 +28,6 @@ export const CHAIN_SEND_SAFETY_FACTOR = BigInt(process.env.CHAIN_SEND_SAFETY_FAC
 
 //Authorizations
 export const AUTHORIZATION_TIMEOUT = parseInt(process.env.AUTHORIZATION_TIMEOUT);
+if(isNaN(AUTHORIZATION_TIMEOUT) || !isFinite(AUTHORIZATION_TIMEOUT)) throw new Error("Invalid AUTHORIZATION_TIMEOUT environment variable!");
 export const REFUND_AUTHORIZATION_TIMEOUT = parseInt(process.env.REFUND_AUTHORIZATION_TIMEOUT ?? process.env.AUTHORIZATION_TIMEOUT);
+if(isNaN(REFUND_AUTHORIZATION_TIMEOUT) || !isFinite(REFUND_AUTHORIZATION_TIMEOUT)) throw new Error("Invalid REFUND_AUTHORIZATION_TIMEOUT environment variable!");
