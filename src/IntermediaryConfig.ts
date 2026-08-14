@@ -25,6 +25,13 @@ function getConfigs<T extends { [key: string]: { configuration: any } }>(chainDa
     return result;
 }
 
+function getConfigValidator(prefix: string) {
+    return (obj: any) => {
+        if(obj.MIN >= obj.MAX) throw new Error(prefix+": MIN must be strictly smaller than MAX value!");
+        if(obj.FEE_PERCENTAGE > 500_000n) throw new Error(prefix+": FEE_PERCENTAGE must be lower than 50%!");
+    };
+}
+
 export const allowedChains = getAllowedChains(RegisteredChains);
 
 const RouteConfigBase = {
@@ -80,7 +87,7 @@ const IntermediaryConfigTemplate = {
 
         ALLOW_NON_PROBABLE_SWAPS: booleanParser(),
         ALLOW_LN_SHORT_EXPIRY: booleanParser(),
-    }, null, true),
+    }, getConfigValidator("TO_BTCLN"), true),
 
     FROM_BTCLN: objectParser({
         ...RouteConfigBase,
@@ -94,7 +101,7 @@ const IntermediaryConfigTemplate = {
             numberParser(true, 0, undefined, true),
             allowedChains
         ),
-    }, null, true),
+    }, getConfigValidator("FROM_BTCLN"), true),
 
     LN: objectParser({
         BASE_FEE: decimalToBigIntParser(8, 0),
@@ -129,7 +136,7 @@ const IntermediaryConfigTemplate = {
         ...RouteConfigBase,
 
         NETWORK_FEE_ADD_PERCENTAGE: numberParser(true, 0, null),
-    }, null, true),
+    }, getConfigValidator("TO_BTC"), true),
 
     FROM_BTC: objectParser({
         ...RouteConfigBase,
@@ -141,7 +148,7 @@ const IntermediaryConfigTemplate = {
             numberParser(true, 0, undefined, true),
             allowedChains
         ),
-    }, null, true),
+    }, getConfigValidator("FROM_BTC"), true),
 
     ONCHAIN: objectParser({
         BASE_FEE: decimalToBigIntParser(8, 0),
@@ -202,7 +209,7 @@ const IntermediaryConfigTemplate = {
         EXCLUDE_ASSETS: arrayParser(stringParser(), true),
 
         MAX_INFLIGHT_SWAPS: numberParser(false, 1, undefined, true)
-    }, null, true),
+    }, getConfigValidator("ONCHAIN_SPV"), true),
 
     LN_TRUSTED: objectParser({
         BASE_FEE: decimalToBigIntParser(8, 0),
@@ -213,7 +220,7 @@ const IntermediaryConfigTemplate = {
         MAX_INFLIGHT_SWAPS: numberParser(false, 1, undefined, true),
 
         INVOICE_EXPIRY_SECONDS: numberParser(false, 0, 3600, true)
-    }, null, true),
+    }, getConfigValidator("LN_TRUSTED"), true),
 
     PRICE_SOURCE: enumParser(["binance", "okx"], true),
     SECURITY_DEPOSIT_APY: percentageToPpmParser(0, undefined, true),
