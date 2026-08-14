@@ -28,7 +28,11 @@ function getConfigs<T extends { [key: string]: { configuration: any } }>(chainDa
 function getConfigValidator(prefix: string) {
     return (obj: any) => {
         if(obj.MIN >= obj.MAX) throw new Error(prefix+": MIN must be strictly smaller than MAX value!");
-        if(obj.FEE_PERCENTAGE > 500_000n) throw new Error(prefix+": FEE_PERCENTAGE must be lower than 50%!");
+        if(obj.FEE_PERCENTAGE > 500_000n) throw new Error(prefix+": FEE_PERCENTAGE must be lower than or equal to 50%!");
+        if(obj.MIN_MAX_OVERRIDES!=null) for(let key in obj.MIN_MAX_OVERRIDES) {
+            const overrides = obj.MIN_MAX_OVERRIDES[key];
+            if(overrides!=null && overrides.min >= overrides.max) throw new Error(prefix+": MIN_MAX_OVERRIDES: "+key+": min must be strictly smaller than max value!");
+        }
     };
 }
 
@@ -130,7 +134,7 @@ const IntermediaryConfigTemplate = {
 
         MAX_INFLIGHT_SWAPS: numberParser(false, 1, undefined, true),
         MAX_INFLIGHT_AUTO_SWAPS: numberParser(false, 1, undefined, true)
-    }, null, true),
+    }, getConfigValidator("LN"), true),
 
     TO_BTC: objectParser({
         ...RouteConfigBase,
@@ -183,7 +187,25 @@ const IntermediaryConfigTemplate = {
         EXCLUDE_ASSETS: arrayParser(stringParser(), true),
 
         MAX_INFLIGHT_SWAPS: numberParser(false, 1, undefined, true)
-    }, null, true),
+    }, (obj) => {
+        getConfigValidator("ONCHAIN")(obj);
+        if(obj.MIN_MAX_OVERRIDES_TO_BTC!=null) for(let key in obj.MIN_MAX_OVERRIDES_TO_BTC) {
+            const overrides = obj.MIN_MAX_OVERRIDES_TO_BTC[key];
+            if(overrides!=null && overrides.min >= overrides.max) throw new Error("ONCHAIN: MIN_MAX_OVERRIDES_TO_BTC: "+key+": min must be strictly smaller than max value!");
+        }
+        if(obj.MIN_MAX_OVERRIDES_FROM_BTC!=null) for(let key in obj.MIN_MAX_OVERRIDES_FROM_BTC) {
+            const overrides = obj.MIN_MAX_OVERRIDES_FROM_BTC[key];
+            if(overrides!=null && overrides.min >= overrides.max) throw new Error("ONCHAIN: MIN_MAX_OVERRIDES_FROM_BTC: "+key+": min must be strictly smaller than max value!");
+        }
+
+        const toBtcMin = obj.MIN_TO_BTC ?? obj.MIN;
+        const toBtcMax = obj.MAX_TO_BTC ?? obj.MAX;
+        if(toBtcMin >= toBtcMax) throw new Error("ONCHAIN(TO BTC): MIN must be strictly smaller than MAX value!");
+
+        const fromBtcMin = obj.MIN_FROM_BTC ?? obj.MIN;
+        const fromBtcMax = obj.MAX_FROM_BTC ?? obj.MAX;
+        if(fromBtcMin >= fromBtcMax) throw new Error("ONCHAIN(FROM BTC): MIN must be strictly smaller than MAX value!");
+    }, true),
 
     ONCHAIN_SPV: objectParser({
         MNEMONIC_FILE: stringParser(null, null, false),
