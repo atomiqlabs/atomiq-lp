@@ -215,7 +215,7 @@ export class IntermediaryRunner extends EventEmitter {
             swapCheckInterval: 5*60*1000,
             refundAuthorizationTimeout: REFUND_AUTHORIZATION_TIMEOUT,
             gracePeriod: GRACE_PERIOD,
-            securityDepositAPY: Number(IntermediaryConfig.SECURITY_DEPOSIT_APY ?? IntermediaryConfig.SOLANA.SECURITY_DEPOSIT_APY)/1000000,
+            securityDepositAPY: Number(IntermediaryConfig.SECURITY_DEPOSIT_APY ?? IntermediaryConfig.SOLANA?.SECURITY_DEPOSIT_APY ?? 800_000n)/1000000,
             minNativeBalances: this.minChainBalanceReserves
         };
 
@@ -380,7 +380,8 @@ export class IntermediaryRunner extends EventEmitter {
                     min: fromBtcLnConfig.MIN,
                     minMaxOverrides: fromBtcLnConfig.MIN_MAX_OVERRIDES,
 
-                    minCltv: 20n,
+                    destinationHtlcTimeoutSeconds: 3_600n,
+                    ...{minCltv: 20n}, //Keep for compatibility
 
                     swapCheckInterval: 1*60*1000,
                     invoiceTimeoutSeconds: fromBtcLnConfig.INVOICE_EXPIRY_SECONDS,
@@ -422,7 +423,8 @@ export class IntermediaryRunner extends EventEmitter {
                     min: fromBtcLnConfig.MIN,
                     minMaxOverrides: fromBtcLnConfig.MIN_MAX_OVERRIDES,
 
-                    minCltv: 20n,
+                    destinationHtlcTimeoutSeconds: 3_600n,
+                    ...{minCltv: 20n}, //Keep for compatibility
 
                     swapCheckInterval: 1*60*1000,
                     invoiceTimeoutSeconds: fromBtcLnConfig.INVOICE_EXPIRY_SECONDS,
@@ -439,31 +441,6 @@ export class IntermediaryRunner extends EventEmitter {
             this.swapHandlers.push(frombtclnAuto);
         }
 
-        if(IntermediaryConfig.ONCHAIN_TRUSTED!=null) {
-            this.swapHandlers.push(
-                new FromBtcTrusted(
-                    new IntermediaryStorageManager(this.directory + "/frombtc_trusted"),
-                    "/frombtc_trusted",
-                    this.multichainData,
-                    this.bitcoinWallet,
-                    this.prices,
-                    this.bitcoinRpc,
-                    {
-                        ...globalConfig,
-                        baseFee: IntermediaryConfig.ONCHAIN_TRUSTED.BASE_FEE,
-                        feePPM: IntermediaryConfig.ONCHAIN_TRUSTED.FEE_PERCENTAGE,
-                        max: IntermediaryConfig.ONCHAIN_TRUSTED.MAX,
-                        min: IntermediaryConfig.ONCHAIN_TRUSTED.MIN,
-
-                        doubleSpendCheckInterval: 5000,
-                        swapAddressExpiry: IntermediaryConfig.ONCHAIN_TRUSTED.SWAP_EXPIRY_SECONDS ?? 3*3600,
-                        recommendFeeMultiplier: 1,
-
-                        maxInflightSwaps: IntermediaryConfig.ONCHAIN_TRUSTED.MAX_INFLIGHT_SWAPS
-                    }
-                )
-            );
-        }
         if(IntermediaryConfig.LN_TRUSTED!=null) {
             this.swapHandlers.push(
                 new FromBtcLnTrusted(
@@ -511,7 +488,7 @@ export class IntermediaryRunner extends EventEmitter {
         const concurrentRequestLimiter = new ConnectionRateLimiter(IntermediaryConfig.REST.CONNECTION_LIMIT);
 
         const restServer = http2Express(express) as express.Express;
-        restServer.use(createBodySizeLimiter(8*1024));
+        restServer.use(createBodySizeLimiter(16*1024));
         if(this.keyBasedWhitelist!=null) restServer.use(this.keyBasedWhitelist.getMiddleware());
         restServer.use(httpRateLimiter.getPreMiddleware());
         restServer.use(concurrentRequestLimiter.getPreMiddleware());

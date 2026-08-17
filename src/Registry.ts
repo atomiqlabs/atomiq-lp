@@ -56,7 +56,7 @@ export class Registry {
         if(!resp.ok) throw new Error("Failed to fetch registration status from github: "+(await resp.text()));
         const obj = await resp.json();
         const state: "open" | "closed" = obj.state;
-        const merged: boolean = obj.state;
+        const merged: boolean = obj.merged;
 
         let status: "pending" | "declined" | "approved";
         if(state==="open") {

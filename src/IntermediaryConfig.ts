@@ -25,6 +25,17 @@ function getConfigs<T extends { [key: string]: { configuration: any } }>(chainDa
     return result;
 }
 
+function getConfigValidator(prefix: string) {
+    return (obj: any) => {
+        if(obj.MIN >= obj.MAX) throw new Error(prefix+": MIN must be strictly smaller than MAX value!");
+        if(obj.FEE_PERCENTAGE > 500_000n) throw new Error(prefix+": FEE_PERCENTAGE must be lower than or equal to 50%!");
+        if(obj.MIN_MAX_OVERRIDES!=null) for(let key in obj.MIN_MAX_OVERRIDES) {
+            const overrides = obj.MIN_MAX_OVERRIDES[key];
+            if(overrides!=null && overrides.min >= overrides.max) throw new Error(prefix+": MIN_MAX_OVERRIDES: "+key+": min must be strictly smaller than max value!");
+        }
+    };
+}
+
 export const allowedChains = getAllowedChains(RegisteredChains);
 
 const RouteConfigBase = {
@@ -80,7 +91,7 @@ const IntermediaryConfigTemplate = {
 
         ALLOW_NON_PROBABLE_SWAPS: booleanParser(),
         ALLOW_LN_SHORT_EXPIRY: booleanParser(),
-    }, null, true),
+    }, getConfigValidator("TO_BTCLN"), true),
 
     FROM_BTCLN: objectParser({
         ...RouteConfigBase,
@@ -94,7 +105,7 @@ const IntermediaryConfigTemplate = {
             numberParser(true, 0, undefined, true),
             allowedChains
         ),
-    }, null, true),
+    }, getConfigValidator("FROM_BTCLN"), true),
 
     LN: objectParser({
         BASE_FEE: decimalToBigIntParser(8, 0),
@@ -123,13 +134,13 @@ const IntermediaryConfigTemplate = {
 
         MAX_INFLIGHT_SWAPS: numberParser(false, 1, undefined, true),
         MAX_INFLIGHT_AUTO_SWAPS: numberParser(false, 1, undefined, true)
-    }, null, true),
+    }, getConfigValidator("LN"), true),
 
     TO_BTC: objectParser({
         ...RouteConfigBase,
 
         NETWORK_FEE_ADD_PERCENTAGE: numberParser(true, 0, null),
-    }, null, true),
+    }, getConfigValidator("TO_BTC"), true),
 
     FROM_BTC: objectParser({
         ...RouteConfigBase,
@@ -141,7 +152,7 @@ const IntermediaryConfigTemplate = {
             numberParser(true, 0, undefined, true),
             allowedChains
         ),
-    }, null, true),
+    }, getConfigValidator("FROM_BTC"), true),
 
     ONCHAIN: objectParser({
         BASE_FEE: decimalToBigIntParser(8, 0),
@@ -176,7 +187,25 @@ const IntermediaryConfigTemplate = {
         EXCLUDE_ASSETS: arrayParser(stringParser(), true),
 
         MAX_INFLIGHT_SWAPS: numberParser(false, 1, undefined, true)
-    }, null, true),
+    }, (obj) => {
+        getConfigValidator("ONCHAIN")(obj);
+        if(obj.MIN_MAX_OVERRIDES_TO_BTC!=null) for(let key in obj.MIN_MAX_OVERRIDES_TO_BTC) {
+            const overrides = obj.MIN_MAX_OVERRIDES_TO_BTC[key];
+            if(overrides!=null && overrides.min >= overrides.max) throw new Error("ONCHAIN: MIN_MAX_OVERRIDES_TO_BTC: "+key+": min must be strictly smaller than max value!");
+        }
+        if(obj.MIN_MAX_OVERRIDES_FROM_BTC!=null) for(let key in obj.MIN_MAX_OVERRIDES_FROM_BTC) {
+            const overrides = obj.MIN_MAX_OVERRIDES_FROM_BTC[key];
+            if(overrides!=null && overrides.min >= overrides.max) throw new Error("ONCHAIN: MIN_MAX_OVERRIDES_FROM_BTC: "+key+": min must be strictly smaller than max value!");
+        }
+
+        const toBtcMin = obj.MIN_TO_BTC ?? obj.MIN;
+        const toBtcMax = obj.MAX_TO_BTC ?? obj.MAX;
+        if(toBtcMin >= toBtcMax) throw new Error("ONCHAIN(TO BTC): MIN must be strictly smaller than MAX value!");
+
+        const fromBtcMin = obj.MIN_FROM_BTC ?? obj.MIN;
+        const fromBtcMax = obj.MAX_FROM_BTC ?? obj.MAX;
+        if(fromBtcMin >= fromBtcMax) throw new Error("ONCHAIN(FROM BTC): MIN must be strictly smaller than MAX value!");
+    }, true),
 
     ONCHAIN_SPV: objectParser({
         MNEMONIC_FILE: stringParser(null, null, false),
@@ -202,7 +231,7 @@ const IntermediaryConfigTemplate = {
         EXCLUDE_ASSETS: arrayParser(stringParser(), true),
 
         MAX_INFLIGHT_SWAPS: numberParser(false, 1, undefined, true)
-    }, null, true),
+    }, getConfigValidator("ONCHAIN_SPV"), true),
 
     LN_TRUSTED: objectParser({
         BASE_FEE: decimalToBigIntParser(8, 0),
@@ -213,18 +242,7 @@ const IntermediaryConfigTemplate = {
         MAX_INFLIGHT_SWAPS: numberParser(false, 1, undefined, true),
 
         INVOICE_EXPIRY_SECONDS: numberParser(false, 0, 3600, true)
-    }, null, true),
-
-    ONCHAIN_TRUSTED: objectParser({
-        BASE_FEE: decimalToBigIntParser(8, 0),
-        FEE_PERCENTAGE: percentageToPpmParser(0),
-        MIN: decimalToBigIntParser(8, 0),
-        MAX: decimalToBigIntParser(8, 0),
-
-        MAX_INFLIGHT_SWAPS: numberParser(false, 1, undefined, true),
-
-        SWAP_EXPIRY_SECONDS: numberParser(false, 0, 72*3600, true)
-    }, null, true),
+    }, getConfigValidator("LN_TRUSTED"), true),
 
     PRICE_SOURCE: enumParser(["binance", "okx"], true),
     SECURITY_DEPOSIT_APY: percentageToPpmParser(0, undefined, true),
